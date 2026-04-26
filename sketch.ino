@@ -186,18 +186,22 @@ void get_new_event()
     return;
   }
 
+  // Timeout de control para evitar procesar eventos muy seguidos
   long ct = millis();
   int diferencia = (ct - gLastControlTick);
 
+  // Evitar overflow de millis() y procesar eventos muy seguidos
   if (diferencia < UMBRAL_DIFERENCIA_TIMEOUT)
   {
     new_event = EV_CONT;
     return;
   }
 
+  // Actualizar lecturas y tick de control
   gLastControlTick = ct;
   actualizarLecturas();
 
+  // Determinar nuevo evento segun estado actual y lecturas
   switch (current_state)
   {
     case ST_DETECTANDO:
@@ -205,13 +209,13 @@ void get_new_event()
       {
         new_event = EV_SIN_MANOS;
       }
-      else if (gLectura.unaMano)
-      {
-        new_event = EV_UNA_SOLA_MANO;
-      }
       else if (gLectura.maniobraBrusca)
       {
         new_event = EV_MANIOBRA_SINUOSA_BRUSCA;
+      }
+      else if (gLectura.unaMano)
+      {
+        new_event = EV_UNA_SOLA_MANO;
       }
       else if (gLectura.maniobraLeve)
       {
@@ -303,6 +307,8 @@ void irError()
   gStateEntryTick = millis();
 }
 
+// Ejecucion en loop, funcion principal
+// Maquina de estados para deteccion de manos en volante con eventos segun lecturas de sensores y estado actual
 void maquina_estados_deteccion_manos()
 {
   get_new_event();
