@@ -333,14 +333,17 @@ void maquina_estados_deteccion_manos()
 
 void setup()
 {
+  // Configuracion de puerto serial para debug (115200 baudios)
   Serial.begin(115200);
 
+  // Configuracion de pines
   pinMode(PIN_FSR_IZQ, INPUT);
   pinMode(PIN_FSR_DER, INPUT);
   pinMode(PIN_VOLANTE, INPUT);
   pinMode(PIN_BUZZER, OUTPUT);
   pinMode(PIN_MOTOR_VIBRADOR, OUTPUT);
 
+  // Actualizar lecturas y tick de control 
   gValorVolanteAnterior = analogRead(PIN_VOLANTE);
   gLastControlTick = millis();
   gStateEntryTick = millis();
