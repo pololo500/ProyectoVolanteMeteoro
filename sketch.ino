@@ -37,15 +37,35 @@ const int UMBRAL_MANO = 1366;
 const int UMBRAL_MOVIMIENTO_LEVE = 80;
 const int UMBRAL_MOVIMIENTO_BRUSCO = 260;
 
-// Notas buzzer
-const int NOTA_DO = 262;
-const int NOTA_MI = 330;
-const int NOTA_SOL = 392;
-const int NOTA_DO_ALTO = 523;
+// Buzzer
+const int BUZZER_OFF = 0;
+const int BUZZER_INTERMITENTE = 1;
+const int BUZZER_CONTINUO = 2;
+
+//PWM
+const int FREQ_ALERTA = 1000; 
+const int FREQ_EMERGENCIA = 2000;     
+const int BUZZER_RESOLUTION = 8; 
+
+// FreeRTOS
+const int BUZZER_STACK_SIZE = 2048;     
+const int SENSORES_STACK_SIZE = 4096;     
+const int SENSOR_TASK_PRIORITY = 2;        
+const int BUZZER_TASK_PRIORITY = 1;       
+const int BUZZER_QUEUE_SIZE = 1;     
+
+QueueHandle_t buzzerQueue;
+volatile int buzzer_mode = BUZZER_OFF;
 
 // Tiempos
 const int UMBRAL_DIFERENCIA_TIMEOUT = 120;
 const int UMBRAL_TIMEOUT_ALERTA = 2500;
+const int UMBRAL_TIMEOUT_ERROR = 5000;
+
+const int SENSOR_TASK_DELAY = 20;
+const int BUZZER_DELAY_OFF = 100;
+const int BUZZER_DELAY_ON = 300;
+const int BUZZER_DELAY_CONTINUO = 100;
 
 struct stLectura
 {
@@ -127,7 +147,7 @@ transition state_table[MAX_STATES][MAX_EVENTS] =
   /*ST_DETECTANDO*/    { none,     none,         irAlertaLeve,     irAlertaLeve,             irAlertaFuerte,             irAlertaFuerte, none,         irError },// ST_DETECTANDO
   /*ST_ALERTA_LEVE*/   { none,     none,         none,             none,                     irAlertaFuerte,             irAlertaFuerte, irDetectando, irError },// ST_ALERTA_LEVE
   /* ST_ALERTA_FUERTE*/{ none,     none,         none,             none,                     none,                       none,           irDetectando, irError },// ST_ALERTA_FUERTE
-  /*ST_ERROR*/         { irError,  irError,      irError,          irError,                  irError,                    irError,        irError,      irError }// ST_ERROR
+  /*ST_ERROR*/         { none,     none,         none,             none,                     none,                       none,           irInit,       irError }// ST_ERROR
 };
 
 void setearMotorVibrador(bool encendido)
@@ -135,23 +155,23 @@ void setearMotorVibrador(bool encendido)
   digitalWrite(PIN_MOTOR_VIBRADOR, encendido ? HIGH : LOW);
 }
 
+void enviarBuzzer(int modo) {
+  xQueueOverwrite(buzzerQueue, &modo);
+}
+
 void apagarBuzzer()
 {
-  noTone(PIN_BUZZER);
+  enviarBuzzer(BUZZER_OFF);
 }
 
 void emitirNotaLeve()
 {
-  tone(PIN_BUZZER, NOTA_MI, 140);
+  enviarBuzzer(BUZZER_INTERMITENTE);
 }
 
 void emitirCancionFuerte()
 {
-  tone(PIN_BUZZER, NOTA_DO, 100);
-  delay(110);
-  tone(PIN_BUZZER, NOTA_SOL, 110);
-  delay(120);
-  tone(PIN_BUZZER, NOTA_DO_ALTO, 140);
+  enviarBuzzer(BUZZER_CONTINUO);;
 }
 
 void actualizarLecturas()
@@ -257,6 +277,17 @@ void get_new_event()
       }
       break;
 
+      case ST_ERROR:
+        if ((ct - gStateEntryTick) >= UMBRAL_TIMEOUT_ERROR)
+        {
+          new_event = EV_TIMEOUT;
+        }
+        else
+        {
+          new_event = EV_CONT;
+        }
+        break;
+
     default:
       new_event = EV_UNKNOW;
       break;
@@ -302,7 +333,7 @@ void irAlertaFuerte()
 void irError()
 {
   setearMotorVibrador(true);
-  tone(PIN_BUZZER, NOTA_DO_ALTO, 250);
+  emitirCancionFuerte();
   current_state = ST_ERROR;
   gStateEntryTick = millis();
 }
@@ -331,6 +362,45 @@ void maquina_estados_deteccion_manos()
   new_event = EV_CONT;
 }
 
+// Tareas
+void sensor_task(void *pv) {
+  while (true) {
+    maquina_estados_deteccion_manos();
+    vTaskDelay(pdMS_TO_TICKS(SENSOR_TASK_DELAY));
+  }
+}
+
+void buzzer_task(void *pv) {
+  int modo;
+
+  while (true) {
+    //Leer desde la FSM
+    if (xQueueReceive(buzzerQueue, &modo, 0) == pdPASS) {
+      buzzer_mode = modo;
+    }
+
+    switch (buzzer_mode) {
+      case BUZZER_OFF: // Apagado
+        ledcWriteTone(PIN_BUZZER, 0); // Frecuencia 0 = apagado
+        vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_OFF));
+        break;
+        
+      case BUZZER_INTERMITENTE: // Intermitente (ST_ALERTA_LEVE)
+        ledcWriteTone(PIN_BUZZER, FREQ_ALERTA);
+        vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms ON
+        ledcWriteTone(PIN_BUZZER, 0);
+        vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms OFF
+        break;
+        
+      case BUZZER_CONTINUO: // Continuo (ST_ALERTA_FUERTE)
+        ledcWriteTone(PIN_BUZZER, FREQ_ALERTA);
+        vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_CONTINUO)); // Simplemente mantenerlo encendido
+        break;
+    }
+
+  }
+}
+
 void setup()
 {
   // Configuracion de puerto serial para debug (115200 baudios)
@@ -343,6 +413,12 @@ void setup()
   pinMode(PIN_BUZZER, OUTPUT);
   pinMode(PIN_MOTOR_VIBRADOR, OUTPUT);
 
+  // Configuracion PWM buzzer
+  ledcAttach(PIN_BUZZER, FREQ_ALERTA, BUZZER_RESOLUTION);
+
+  //FeeRTOS
+  buzzerQueue = xQueueCreate(BUZZER_QUEUE_SIZE, sizeof(int));
+
   // Actualizar lecturas y tick de control 
   gValorVolanteAnterior = analogRead(PIN_VOLANTE);
   gLastControlTick = millis();
@@ -351,9 +427,11 @@ void setup()
   current_state = ST_INIT;
   new_event = EV_CONT;
   irInit();
+
+  xTaskCreate(sensor_task, "SensorTask", SENSORES_STACK_SIZE, NULL,SENSOR_TASK_PRIORITY , NULL);
+  xTaskCreate(buzzer_task, "BuzzerTask", BUZZER_STACK_SIZE, NULL, BUZZER_TASK_PRIORITY, NULL);
 }
 
 void loop()
-{
-  maquina_estados_deteccion_manos();
+{  
 }
