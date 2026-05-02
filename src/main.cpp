@@ -11,16 +11,16 @@
 	}
 #endif
 
-#define DebugPrintEstado(estado, evento) \
-  { \
-    DebugPrint("-----------------------------------------------------"); \
-    Serial.print("EST-> ["); \
-    Serial.print(estado); \
-    Serial.print("]: EVT-> ["); \
-    Serial.print(evento); \
-    Serial.println("]."); \
-    DebugPrint("-----------------------------------------------------"); \
-  }
+#define DebugPrintEstado(estado, evento)                                     \
+	{                                                                        \
+		DebugPrint("-----------------------------------------------------"); \
+		Serial.print("EST-> [");                                             \
+		Serial.print(estado);                                                \
+		Serial.print("]: EVT-> [");                                          \
+		Serial.print(evento);                                                \
+		Serial.println("].");                                                \
+		DebugPrint("-----------------------------------------------------"); \
+	}
 
 #define MAX_STATES 5
 #define MAX_EVENTS 8
@@ -46,8 +46,9 @@ const int BUZZER_CONTINUO = 2;
 // PWM
 const int FREQ_ALERTA = 1000;
 const int FREQ_EMERGENCIA = 2000;
-const int BUZZER_CHANNEL = 0;
 const int BUZZER_RESOLUTION = 8;
+// Esta constante es para VS
+const int BUZZER_CHANNEL = 0;
 
 // FreeRTOS
 const int BUZZER_STACK_SIZE = 2048;
@@ -76,13 +77,12 @@ enum states
 	ST_ERROR
 } current_state;
 
-const char* states_s[] = {
+const char *states_s[] = {
 	"ST_Init",
 	"ST_Detectando",
 	"ST_AlertaLeve",
 	"ST_AlertaFuerte",
-	"ST_ERROR"
-};
+	"ST_ERROR"};
 
 enum events
 {
@@ -96,7 +96,7 @@ enum events
 	EV_UNKNOW
 } new_event;
 
-const char* events_s[] = {
+const char *events_s[] = {
 	"EV_CONT",
 	"EV_Dummy",
 	"EV_Una_sola_mano",
@@ -104,8 +104,7 @@ const char* events_s[] = {
 	"EV_Maniobra_sinuosa_brusca",
 	"EV_Sin_manos",
 	"EV_Timeout",
-	"EV_UNKNOW"
-};
+	"EV_UNKNOW"};
 
 // ========================== ESTRUCTURAS ==========================
 struct stLectura
@@ -147,13 +146,13 @@ unsigned long gStateEntryTick = 0;
 
 // Matriz de transición de estados
 transition state_table[MAX_STATES][MAX_EVENTS] =
-{
-  /*Estado*/           /*EV_CONT,  EV_Dummy,     EV_Una_sola_mano, EV_Maniobra_sinuosa_leve, EV_Maniobra_sinuosa_brusca, EV_Sin_manos,   EV_Timeout,   EV_UNKNOW */
-  /*ST_INIT*/          { none,     irDetectando, none,             none,                     none,                       none,           none,         irError },// ST_INIT
-  /*ST_DETECTANDO*/    { none,     none,         irAlertaLeve,     irAlertaLeve,             irAlertaFuerte,             irAlertaFuerte, none,         irError },// ST_DETECTANDO
-  /*ST_ALERTA_LEVE*/   { none,     none,         none,             none,                     irAlertaFuerte,             irAlertaFuerte, irDetectando, irError },// ST_ALERTA_LEVE
-  /*ST_ALERTA_FUERTE*/ { none,     none,         none,             none,                     none,                       none,           irDetectando, irError },// ST_ALERTA_FUERTE
-  /*ST_ERROR*/         { none,     none,         none,             none,                     none,                       none,           irInit,       irError } // ST_ERROR
+	{
+		/*Estado*/																								   /*EV_CONT,  EV_Dummy,     EV_Una_sola_mano, EV_Maniobra_sinuosa_leve, EV_Maniobra_sinuosa_brusca, EV_Sin_manos,   EV_Timeout,   EV_UNKNOW */
+		/*ST_INIT*/ {none, irDetectando, none, none, none, none, none, irError},								   // ST_INIT
+		/*ST_DETECTANDO*/ {none, none, irAlertaLeve, irAlertaLeve, irAlertaFuerte, irAlertaFuerte, none, irError}, // ST_DETECTANDO
+		/*ST_ALERTA_LEVE*/ {none, none, none, none, irAlertaFuerte, irAlertaFuerte, irDetectando, irError},		   // ST_ALERTA_LEVE
+		/*ST_ALERTA_FUERTE*/ {none, none, none, none, none, none, irDetectando, irError},						   // ST_ALERTA_FUERTE
+		/*ST_ERROR*/ {none, none, none, none, none, none, irInit, irError}										   // ST_ERROR
 };
 
 // ========================== FUNCIONES ==========================
@@ -255,18 +254,24 @@ void actualizarLecturas()
 // De la Máquina de Estados
 events detectarEventoDetectando()
 {
-	if (gLectura.sinManos) return EV_SIN_MANOS;
-	if (gLectura.maniobraBrusca) return EV_MANIOBRA_SINUOSA_BRUSCA;
-	if (gLectura.unaMano) return EV_UNA_SOLA_MANO;
-	if (gLectura.maniobraLeve) return EV_MANIOBRA_SINUOSA_LEVE;
+	if (gLectura.sinManos)
+		return EV_SIN_MANOS;
+	if (gLectura.maniobraBrusca)
+		return EV_MANIOBRA_SINUOSA_BRUSCA;
+	if (gLectura.unaMano)
+		return EV_UNA_SOLA_MANO;
+	if (gLectura.maniobraLeve)
+		return EV_MANIOBRA_SINUOSA_LEVE;
 
 	return EV_CONT;
 }
 
 events detectarEventoAlertaLeve(unsigned long ct)
 {
-	if (gLectura.sinManos) return EV_SIN_MANOS;
-	if (gLectura.maniobraBrusca) return EV_MANIOBRA_SINUOSA_BRUSCA;
+	if (gLectura.sinManos)
+		return EV_SIN_MANOS;
+	if (gLectura.maniobraBrusca)
+		return EV_MANIOBRA_SINUOSA_BRUSCA;
 
 	if ((ct - gStateEntryTick) >= UMBRAL_TIMEOUT_ALERTA)
 		return EV_TIMEOUT;
@@ -383,20 +388,37 @@ void buzzer_task(void *pv)
 		switch (buzzer_mode)
 		{
 		case BUZZER_OFF: // Apagado
-			ledcWrite(BUZZER_CHANNEL, 0);
+			// Esta configuración es para VS Code:
+			// ledcWrite(BUZZER_CHANNEL, 0);
+			// vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_OFF));
+
+			// Esta configuración es para Wokwi
+			ledcWrite(PIN_BUZZER, 0);
 			vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_OFF));
 			break;
 
 		case BUZZER_INTERMITENTE: // Intermitente (ST_ALERTA_LEVE)
+			// Esta configuración es para VS Code:
 			ledcWriteTone(BUZZER_CHANNEL, FREQ_ALERTA);
 			vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms ON
 			ledcWrite(BUZZER_CHANNEL, 0);
 			vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms OFF
+
+			// Esta configuración es para Wokwi:
+			// ledcWriteTone(PIN_BUZZER, FREQ_ALERTA);
+			// vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms ON
+			// ledcWrite(PIN_BUZZER, 0);
+			// vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms OFF
 			break;
 
 		case BUZZER_CONTINUO: // Continuo (ST_ALERTA_FUERTE)
+			// Esta configuración es para VS Code:
 			ledcWriteTone(BUZZER_CHANNEL, FREQ_EMERGENCIA);
 			vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_CONTINUO)); // Simplemente mantenerlo encendido
+
+			// Esta configuración es para Wokwi:
+			// ledcWriteTone(PIN_BUZZER, FREQ_EMERGENCIA);
+			// vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_CONTINUO)); // Simplemente mantenerlo encendido
 			break;
 		}
 	}
@@ -416,8 +438,13 @@ void setup()
 	pinMode(PIN_MOTOR_VIBRADOR, OUTPUT);
 
 	// Configuracion PWM buzzer
+	// Esta configuración es para VS Code:
 	ledcSetup(BUZZER_CHANNEL, FREQ_ALERTA, BUZZER_RESOLUTION);
 	ledcAttachPin(PIN_BUZZER, BUZZER_CHANNEL);
+
+	// Esta configuración es para Wokwi:
+	// ledcAttach(PIN_BUZZER, FREQ_ALERTA, BUZZER_RESOLUTION);
+	// ledcWrite(PIN_BUZZER, 0);
 
 	// FreeRTOS
 	buzzerQueue = xQueueCreate(BUZZER_QUEUE_SIZE, sizeof(int));
