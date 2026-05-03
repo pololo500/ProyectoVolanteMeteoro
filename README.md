@@ -98,13 +98,13 @@ Sensores → Lecturas → Eventos → FSM → Acciones → Buzzer
 ---
 
 ## 6) 💾 Hardware y pines
-- PIN_FSR_IZQ = 34
-- PIN_FSR_DER = 35
-- PIN_VOLANTE = 32
-- PIN_BUZZER = 33
-- PIN_MOTOR_VIBRADOR = 27
+- PIN_BUZZER = 21
+- PIN_MOTOR_VIBRADOR = 32
+- PIN_FSR_IZQ = 33
+- PIN_FSR_DER = 34
+- PIN_VOLANTE = 35
 
-En Wokwi, el LED conectado a PIN 27 simula el motor vibrador.
+En Wokwi, el LED conectado a PIN 32 simula el motor vibrador.
 
 ---
 

@@ -27,11 +27,11 @@
 
 // ========================== CONSTANTES ==========================
 // Pines (ESP32 DevKit V1)
-const int PIN_FSR_IZQ = 34;
-const int PIN_FSR_DER = 35;
-const int PIN_VOLANTE = 32;
-const int PIN_BUZZER = 33;
-const int PIN_MOTOR_VIBRADOR = 27;
+const int PIN_BUZZER = 21;
+const int PIN_MOTOR_VIBRADOR = 32;
+const int PIN_FSR_IZQ = 33;
+const int PIN_FSR_DER = 34;
+const int PIN_VOLANTE = 35;
 
 // Umbrales
 const int UMBRAL_MANO = 1366;
@@ -146,13 +146,13 @@ unsigned long gStateEntryTick = 0;
 
 // Matriz de transición de estados
 transition state_table[MAX_STATES][MAX_EVENTS] =
-	{
-		/*Estado*/																								   /*EV_CONT,  EV_Dummy,     EV_Una_sola_mano, EV_Maniobra_sinuosa_leve, EV_Maniobra_sinuosa_brusca, EV_Sin_manos,   EV_Timeout,   EV_UNKNOW */
-		/*ST_INIT*/ {none, irDetectando, none, none, none, none, none, irError},								   // ST_INIT
-		/*ST_DETECTANDO*/ {none, none, irAlertaLeve, irAlertaLeve, irAlertaFuerte, irAlertaFuerte, none, irError}, // ST_DETECTANDO
-		/*ST_ALERTA_LEVE*/ {none, none, none, none, irAlertaFuerte, irAlertaFuerte, irDetectando, irError},		   // ST_ALERTA_LEVE
-		/*ST_ALERTA_FUERTE*/ {none, none, none, none, none, none, irDetectando, irError},						   // ST_ALERTA_FUERTE
-		/*ST_ERROR*/ {none, none, none, none, none, none, irInit, irError}										   // ST_ERROR
+{
+	/*Estado*/				/*EV_CONT,  EV_Dummy,		EV_Una_sola_mano,	EV_Maniobra_sinuosa_leve,	EV_Maniobra_sinuosa_brusca,	EV_Sin_manos,	EV_Timeout,		EV_UNKNOW */
+	/*ST_INIT*/ 			{none, 		irDetectando, 	none, 				none, 						none, 						none, 			none, 			irError}, // ST_INIT
+	/*ST_DETECTANDO*/ 		{none,		none, 			irAlertaLeve, 		irAlertaLeve, 				irAlertaFuerte, 			irAlertaFuerte, none, 			irError}, // ST_DETECTANDO
+	/*ST_ALERTA_LEVE*/ 		{none, 		none, 			none, 				none, 						irAlertaFuerte, 			irAlertaFuerte, irDetectando, 	irError}, // ST_ALERTA_LEVE
+	/*ST_ALERTA_FUERTE*/	{none, 		none, 			none, 				none, 						none, 						none, 			irDetectando, 	irError}, // ST_ALERTA_FUERTE
+	/*ST_ERROR*/ 			{none, 		none, 			none, 				none, 						none, 						none, 			irInit, 		irError}  // ST_ERROR
 };
 
 // ========================== FUNCIONES ==========================
