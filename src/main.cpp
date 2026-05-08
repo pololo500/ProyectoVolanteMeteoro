@@ -26,6 +26,14 @@
 #define MAX_EVENTS 8
 
 // ========================== CONSTANTES ==========================
+// CAMBIAR ESTA CONSTANTE SI SE USA WOKWI O NO
+const bool WOKWI = false;
+// WOKWI = FALSE 	-> VSCODE
+// WOKWI = TRUE 	-> WOKWI
+
+// ADEMÁS, modificar según se necesite la
+// configuración PWM buzzer en setup()
+
 // Pines (ESP32 DevKit V1)
 const int PIN_BUZZER = 21;
 const int PIN_MOTOR_VIBRADOR = 32;
@@ -61,6 +69,7 @@ const int BUZZER_QUEUE_SIZE = 1;
 const int UMBRAL_DIFERENCIA_TIMEOUT = 120;
 const int UMBRAL_TIMEOUT_ALERTA = 2500;
 const int UMBRAL_TIMEOUT_ERROR = 5000;
+const int UMBRAL_TIEMPO_UNA_MANO = 2000;
 
 const int SENSOR_TASK_DELAY = 20;
 const int BUZZER_DELAY_OFF = 100;
@@ -143,16 +152,17 @@ stLectura gLectura;
 int gValorVolanteAnterior = 0;
 unsigned long gLastControlTick = 0;
 unsigned long gStateEntryTick = 0;
+unsigned long gUnaManoDesde = 0;
 
 // Matriz de transición de estados
 transition state_table[MAX_STATES][MAX_EVENTS] =
-{
-	/*Estado*/				/*EV_CONT,  EV_Dummy,		EV_Una_sola_mano,	EV_Maniobra_sinuosa_leve,	EV_Maniobra_sinuosa_brusca,	EV_Sin_manos,	EV_Timeout,		EV_UNKNOW */
-	/*ST_INIT*/ 			{none, 		irDetectando, 	none, 				none, 						none, 						none, 			none, 			irError}, // ST_INIT
-	/*ST_DETECTANDO*/ 		{none,		none, 			irAlertaLeve, 		irAlertaLeve, 				irAlertaFuerte, 			irAlertaFuerte, none, 			irError}, // ST_DETECTANDO
-	/*ST_ALERTA_LEVE*/ 		{none, 		none, 			none, 				none, 						irAlertaFuerte, 			irAlertaFuerte, irDetectando, 	irError}, // ST_ALERTA_LEVE
-	/*ST_ALERTA_FUERTE*/	{none, 		none, 			none, 				none, 						none, 						none, 			irDetectando, 	irError}, // ST_ALERTA_FUERTE
-	/*ST_ERROR*/ 			{none, 		none, 			none, 				none, 						none, 						none, 			irInit, 		irError}  // ST_ERROR
+	{
+		/*Estado*/																								   /*EV_CONT,  EV_Dummy,		EV_Una_sola_mano,	EV_Maniobra_sinuosa_leve,	EV_Maniobra_sinuosa_brusca,	EV_Sin_manos,	EV_Timeout,		EV_UNKNOW */
+		/*ST_INIT*/ {none, irDetectando, none, none, none, none, none, irError},								   // ST_INIT
+		/*ST_DETECTANDO*/ {none, none, irAlertaLeve, irAlertaLeve, irAlertaFuerte, irAlertaFuerte, none, irError}, // ST_DETECTANDO
+		/*ST_ALERTA_LEVE*/ {none, none, none, none, irAlertaFuerte, irAlertaFuerte, irDetectando, irError},		   // ST_ALERTA_LEVE
+		/*ST_ALERTA_FUERTE*/ {none, none, none, none, none, none, irDetectando, irError},						   // ST_ALERTA_FUERTE
+		/*ST_ERROR*/ {none, none, none, none, none, none, irInit, irError}										   // ST_ERROR
 };
 
 // ========================== FUNCIONES ==========================
@@ -252,102 +262,73 @@ void actualizarLecturas()
 }
 
 // De la Máquina de Estados
-events detectarEventoDetectando()
+events get_new_event()
 {
+	unsigned long ct = millis();
+	unsigned long diferencia = ct - gLastControlTick;
+
+	// Timeout de control para evitar procesar eventos muy seguidos
+	if (diferencia < UMBRAL_DIFERENCIA_TIMEOUT)
+		return EV_CONT;
+
+	gLastControlTick = ct;
+	actualizarLecturas();
+
 	if (gLectura.sinManos)
 		return EV_SIN_MANOS;
+
 	if (gLectura.maniobraBrusca)
 		return EV_MANIOBRA_SINUOSA_BRUSCA;
+
 	if (gLectura.unaMano)
-		return EV_UNA_SOLA_MANO;
+	{
+		if(gUnaManoDesde == 0)
+			gUnaManoDesde = millis();
+
+		if((millis() - gUnaManoDesde) >= UMBRAL_TIEMPO_UNA_MANO)
+			return EV_UNA_SOLA_MANO;
+	}
+	else
+		gUnaManoDesde = 0;
+
 	if (gLectura.maniobraLeve)
 		return EV_MANIOBRA_SINUOSA_LEVE;
 
 	return EV_CONT;
 }
 
-events detectarEventoAlertaLeve(unsigned long ct)
+events get_fsm_event()
 {
-	if (gLectura.sinManos)
-		return EV_SIN_MANOS;
-	if (gLectura.maniobraBrusca)
-		return EV_MANIOBRA_SINUOSA_BRUSCA;
-
-	if ((ct - gStateEntryTick) >= UMBRAL_TIMEOUT_ALERTA)
-		return EV_TIMEOUT;
-
-	return EV_CONT;
-}
-
-events detectarEventoAlertaFuerte(unsigned long ct)
-{
-	if ((ct - gStateEntryTick) >= UMBRAL_TIMEOUT_ALERTA)
-		return EV_TIMEOUT;
-
-	return EV_CONT;
-}
-
-events detectarEventoError(unsigned long ct)
-{
-	if ((ct - gStateEntryTick) >= UMBRAL_TIMEOUT_ERROR)
-		return EV_TIMEOUT;
-
-	return EV_CONT;
-}
-
-void get_new_event()
-{
-	if (current_state == ST_INIT)
-	{
-		new_event = EV_DUMMY;
-		return;
-	}
-
-	// Timeout de control para evitar procesar eventos muy seguidos
 	unsigned long ct = millis();
-	unsigned long diferencia = ct - gLastControlTick;
 
-	// Evitar overflow de millis() y procesar eventos muy seguidos
-	if (diferencia < UMBRAL_DIFERENCIA_TIMEOUT)
-	{
-		new_event = EV_CONT;
-		return;
-	}
-
-	// Actualizar lecturas y tick de control
-	gLastControlTick = ct;
-	actualizarLecturas();
-
-	// Determinar nuevo evento segun estado actual y lecturas
 	switch (current_state)
 	{
-	case ST_DETECTANDO:
-		new_event = detectarEventoDetectando();
-		break;
+	case ST_INIT:
+		return EV_DUMMY;
 
 	case ST_ALERTA_LEVE:
-		new_event = detectarEventoAlertaLeve(ct);
-		break;
-
 	case ST_ALERTA_FUERTE:
-		new_event = detectarEventoAlertaFuerte(ct);
+		if ((ct - gStateEntryTick) >= UMBRAL_TIMEOUT_ALERTA)
+			return EV_TIMEOUT;
 		break;
 
 	case ST_ERROR:
-		new_event = detectarEventoError(ct);
+		if ((ct - gStateEntryTick) >= UMBRAL_TIMEOUT_ERROR)
+			return EV_TIMEOUT;
 		break;
 
 	default:
-		new_event = EV_UNKNOW;
 		break;
 	}
+
+	return get_new_event();
 }
 
 // Principal
 // Maquina de estados para deteccion de manos en volante con eventos segun lecturas de sensores y estado actual
 void maquina_estados_deteccion_manos()
 {
-	get_new_event();
+	new_event = get_fsm_event();
 
 	if ((new_event >= 0) && (new_event < MAX_EVENTS) && (current_state >= 0) && (current_state < MAX_STATES))
 	{
@@ -388,37 +369,50 @@ void buzzer_task(void *pv)
 		switch (buzzer_mode)
 		{
 		case BUZZER_OFF: // Apagado
-			// Esta configuración es para VS Code:
-			// ledcWrite(BUZZER_CHANNEL, 0);
-			// vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_OFF));
+			if (!WOKWI)
+			{
+				// Esta configuración es para VS Code:
+				ledcWrite(BUZZER_CHANNEL, 0);
+				vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_OFF));
+			}
+			else
+			{
 
-			// Esta configuración es para Wokwi
-			ledcWrite(PIN_BUZZER, 0);
-			vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_OFF));
+				// Esta configuración es para Wokwi
+				ledcWrite(PIN_BUZZER, 0);
+				vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_OFF));
+			}
 			break;
 
 		case BUZZER_INTERMITENTE: // Intermitente (ST_ALERTA_LEVE)
-			// Esta configuración es para VS Code:
-			ledcWriteTone(BUZZER_CHANNEL, FREQ_ALERTA);
-			vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms ON
-			ledcWrite(BUZZER_CHANNEL, 0);
-			vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms OFF
-
-			// Esta configuración es para Wokwi:
-			// ledcWriteTone(PIN_BUZZER, FREQ_ALERTA);
-			// vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms ON
-			// ledcWrite(PIN_BUZZER, 0);
-			// vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms OFF
+			if (!WOKWI)
+			{
+				// Esta configuración es para VS Code:
+				ledcWriteTone(BUZZER_CHANNEL, FREQ_ALERTA);
+				vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms ON
+				ledcWrite(BUZZER_CHANNEL, 0);
+				vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms OFF
+			}
+			else
+			{
+				// Esta configuración es para Wokwi:
+				ledcWriteTone(PIN_BUZZER, FREQ_ALERTA);
+				vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms ON
+				ledcWrite(PIN_BUZZER, 0);
+				vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_ON)); // 300ms OFF
+			}
 			break;
 
 		case BUZZER_CONTINUO: // Continuo (ST_ALERTA_FUERTE)
-			// Esta configuración es para VS Code:
-			ledcWriteTone(BUZZER_CHANNEL, FREQ_EMERGENCIA);
-			vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_CONTINUO)); // Simplemente mantenerlo encendido
-
-			// Esta configuración es para Wokwi:
-			// ledcWriteTone(PIN_BUZZER, FREQ_EMERGENCIA);
-			// vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_CONTINUO)); // Simplemente mantenerlo encendido
+			if(!WOKWI){
+				// Esta configuración es para VS Code:
+				ledcWriteTone(BUZZER_CHANNEL, FREQ_EMERGENCIA);
+				vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_CONTINUO)); // Simplemente mantenerlo encendido
+			}else{
+				// Esta configuración es para Wokwi:
+				ledcWriteTone(PIN_BUZZER, FREQ_EMERGENCIA);
+				vTaskDelay(pdMS_TO_TICKS(BUZZER_DELAY_CONTINUO)); // Simplemente mantenerlo encendido
+			}
 			break;
 		}
 	}
@@ -438,13 +432,18 @@ void setup()
 	pinMode(PIN_MOTOR_VIBRADOR, OUTPUT);
 
 	// Configuracion PWM buzzer
-	// Esta configuración es para VS Code:
-	ledcSetup(BUZZER_CHANNEL, FREQ_ALERTA, BUZZER_RESOLUTION);
-	ledcAttachPin(PIN_BUZZER, BUZZER_CHANNEL);
-
-	// Esta configuración es para Wokwi:
-	// ledcAttach(PIN_BUZZER, FREQ_ALERTA, BUZZER_RESOLUTION);
-	// ledcWrite(PIN_BUZZER, 0);
+	if(!WOKWI)
+	{
+		// Esta configuración es para VS Code:
+		ledcSetup(BUZZER_CHANNEL, FREQ_ALERTA, BUZZER_RESOLUTION);
+		ledcAttachPin(PIN_BUZZER, BUZZER_CHANNEL);
+	}
+	else
+	{
+		// Esta configuración es para Wokwi:
+		// ledcAttach(PIN_BUZZER, FREQ_ALERTA, BUZZER_RESOLUTION);
+		// ledcWrite(PIN_BUZZER, 0);
+	}
 
 	// FreeRTOS
 	buzzerQueue = xQueueCreate(BUZZER_QUEUE_SIZE, sizeof(int));

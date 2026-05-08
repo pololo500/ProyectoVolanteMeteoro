@@ -70,16 +70,16 @@
     {
       "type": "wokwi-text",
       "id": "text7",
-      "top": 249.6,
-      "left": -124.8,
+      "top": -19.2,
+      "left": 652.8,
       "attrs": { "text": "Uso fuente externa de 5v\nCOMPARTO MASA" }
     },
     {
       "type": "wokwi-text",
       "id": "text8",
-      "top": 76.8,
-      "left": 662.4,
-      "attrs": { "text": "Linea de alimentación de 3,3V" }
+      "top": 316.8,
+      "left": 432,
+      "attrs": { "text": "Linea de alimentación (3,3V)" }
     }
   ],
   "connections": [
@@ -90,9 +90,8 @@
     [ "r3:2", "esp:D2", "green", [ "v99.14", "h278.51", "v-37.5" ] ],
     [ "vcc1:VCC", "bb1:tp.1", "red", [ "v0" ] ],
     [ "gnd1:GND", "bb1:tn.1", "black", [ "v0" ] ],
-    [ "bb1:tn.3", "esp:GND.2", "black", [ "v0" ] ],
     [ "esp:GND.1", "bb1:bn.49", "black", [ "h0" ] ],
-    [ "esp:3V3", "bb1:bp.50", "red", [ "h230.1", "v-200.7" ] ],
+    [ "esp:3V3", "bb1:bp.50", "red", [ "h278.1", "v-219.9" ] ],
     [ "pot1:GND", "bb1:bn.6", "black", [ "v19.2", "h-38.4", "v-113.9" ] ],
     [ "bb1:bn.36", "pot2:GND", "black", [ "h-0.8", "v123.5", "h38.4" ] ],
     [ "pot3:GND", "bb1:bn.25", "black", [ "v0" ] ],
@@ -104,7 +103,6 @@
     [ "pot3:SIG", "esp:D35", "green", [ "v57.6", "h-67.6", "v96.4" ] ],
     [ "bz2:2", "esp:D21", "green", [ "v364.8", "h-202", "v-66.8" ] ],
     [ "bb1:tn.12", "r1:1", "black", [ "v0" ] ],
-    [ "bz2:1", "bb1:tp.47", "black", [ "v0" ] ],
     [ "esp:D32", "led1:A", "green", [ "h0" ] ],
     [ "pot3:GND", "bb1:31b.j", "", [ "$bb" ] ],
     [ "pot3:SIG", "bb1:32b.j", "", [ "$bb" ] ],
@@ -112,7 +110,9 @@
     [ "r1:1", "bb1:16t.e", "", [ "$bb" ] ],
     [ "r1:2", "bb1:22t.e", "", [ "$bb" ] ],
     [ "led1:A", "bb1:23t.d", "", [ "$bb" ] ],
-    [ "led1:C", "bb1:22t.d", "", [ "$bb" ] ]
+    [ "led1:C", "bb1:22t.d", "", [ "$bb" ] ],
+    [ "bz2:1", "bb1:tn.47", "black", [ "v0" ] ],
+    [ "bb1:tn.50", "bb1:bn.50", "black", [ "h37.6", "v174" ] ]
   ],
   "dependencies": {}
 }
