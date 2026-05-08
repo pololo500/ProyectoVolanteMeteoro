@@ -1,51 +1,115 @@
-# Documentacion del Sistema de Alerta de Atencion (ESP32)
+# 🚗 Sistema de Monitoreo de Atención en Volante
 
-## 1. Objetivo
+## 📌 Descripción
 Este proyecto implementa una maquina de estados finitos (FSM) para detectar perdida de atencion al volante usando:
-
-- 2 sensores de fuerza (FSR) simulados con potenciometros
-- 1 sensor de movimiento de volante (potenciometro)
-- 1 buzzer para alerta sonora
-- 1 salida digital (LED en Wokwi) que representa un motor vibrador real
-
+- 2 sensores de fuerza (FSR) simulados con potenciometros.
+- 1 sensor magnético (AS5600) simulado con potenciometro.
+- 1 motor vibrador real simulado con un LED.
+- 1 buzzer para alerta sonora.
 Importante: el motor vibrador se controla en modo digital (ON/OFF), no por PWM.
 
----
-
-## 2. Arquitectura general
-El codigo esta organizado con arquitectura tipo matriz de transiciones:
-
-- Enumeracion de estados
-- Enumeracion de eventos
-- Matriz state_table[estado][evento] de funciones de transicion
-- Funcion central de ciclo: maquina_estados_deteccion_manos()
-- Generador de eventos: get_new_event()
-
-Flujo de ejecucion:
-
-1. loop() llama a maquina_estados_deteccion_manos()
-2. maquina_estados_deteccion_manos() llama a get_new_event()
-3. Se selecciona la transicion desde state_table[current_state][new_event]
-4. Se ejecuta accion de salida y cambio de estado
-5. Se consume el evento y vuelve a empezar
+## 🤔 Objetivo
+Detectar situaciones de riesgo al volante como:
+- Conducción sin manos.
+- Uso de una sola mano.
+- Maniobras brúscas o erráticas.
 
 ---
 
-## 3. Hardware y pines
+## 1) 🧠 Arquitectura general
+El sistema está dividido en tres capas principales:
 
-- PIN_FSR_IZQ = 34
-- PIN_FSR_DER = 35
-- PIN_VOLANTE = 32
-- PIN_BUZZER = 33
-- PIN_MOTOR_VIBRADOR = 27
+### 🔹 1.1) Adquisición de datos
+Lectura de sensores:
+- FSR izquierdo / derecho
+- Sensor de rotación del volante
 
-En Wokwi, el LED conectado a PIN 27 simula el motor vibrador.
+```cpp
+actualizarLecturas();
+```
 
 ---
 
-## 4. Umbrales y criterios de deteccion
+### 🔹 1.2) Lógica de decisión
+Se interpretan las lecturas para generar eventos:
 
-### 4.1 Deteccion de manos
+```cpp
+get_new_event();
+```
+
+Ejemplos de eventos:
+- `EV_SIN_MANOS`
+- `EV_UNA_SOLA_MANO`
+- `EV_MANIOBRA_SINUOSA_BRUSCA`
+- `EV_TIMEOUT`
+
+---
+
+### 🔹 1.3) Máquina de Estados (FSM)
+El sistema utiliza una **FSM basada en tabla de transición**:
+
+```cpp
+transition state_table[MAX_STATES][MAX_EVENTS];
+```
+
+Estados principales:
+- `ST_INIT`
+- `ST_DETECTANDO`
+- `ST_ALERTA_LEVE`
+- `ST_ALERTA_FUERTE`
+- `ST_ERROR`
+
+---
+
+## 2) ⚙️ Concurrencia (FreeRTOS)
+Se utilizan tareas para desacoplar responsabilidades:
+- `sensor_task` → lectura y lógica
+- `buzzer_task` → control de alertas sonoras
+
+Comunicación mediante:
+```cpp
+QueueHandle_t buzzerQueue;
+```
+
+---
+
+## 3) 🔊 Sistema de Alertas
+El buzzer se controla mediante PWM (LEDC del ESP32):
+- Alerta leve → tono intermitente
+- Alerta fuerte → tono continuo
+- Error → patrón diferenciado
+
+---
+
+## 4) 🔁 Flujo del sistema
+```text
+Sensores → Lecturas → Eventos → FSM → Acciones → Buzzer
+```
+
+---
+
+## 5) 🧪 Tecnologías utilizadas
+- C++ (Arduino framework)
+- ESP32
+- FreeRTOS
+- Wokwi (simulación)
+- PWM (LEDC)
+
+---
+
+## 6) 💾 Hardware y pines
+- PIN_BUZZER = 21
+- PIN_MOTOR_VIBRADOR = 32
+- PIN_FSR_IZQ = 33
+- PIN_FSR_DER = 34
+- PIN_VOLANTE = 35
+
+En Wokwi, el LED conectado a PIN 32 simula el motor vibrador.
+
+---
+
+## 7) 🤖 Umbrales y criterios de deteccion
+### 7.1) 🤚 Deteccion de manos
 - UMBRAL_MANO = 1366
 - Si FSR >= UMBRAL_MANO, se considera que hay mano en ese lado.
 
@@ -54,7 +118,7 @@ Se derivan 3 condiciones:
 - unaMano: exactamente una mano detectada
 - dosManos: ambas manos detectadas
 
-### 4.2 Deteccion de maniobra
+### 7.2) 🛞 Deteccion de maniobra
 Se usa la diferencia absoluta del valor del volante entre muestras consecutivas:
 
 - difVolante = abs(volanteActual - volanteAnterior)
@@ -68,14 +132,13 @@ Clasificacion:
 - maniobraLeve: 80 <= difVolante < 260
 - maniobraBrusca: difVolante >= 260
 
-### 4.3 Tiempos de control y timeout
+### 7.3) ⏳ Tiempos de control y timeout
 - UMBRAL_DIFERENCIA_TIMEOUT = 120 ms (periodo minimo entre evaluaciones)
 - UMBRAL_TIMEOUT_ALERTA = 2500 ms (genera EV_Timeout en estados de alerta)
 
 ---
 
-## 5. Estados de la FSM (version actual)
-
+## 8) ➡️ Estados de la FSM (version actual)
 1. ST_Init
 2. ST_Detectando
 3. ST_AlertaLeve
@@ -83,7 +146,6 @@ Clasificacion:
 5. ST_ERROR
 
 Descripcion funcional:
-
 - ST_Init:
   - Estado de arranque
   - Buzzer apagado
@@ -109,8 +171,7 @@ Descripcion funcional:
 
 ---
 
-## 6. Eventos de la FSM (version actual)
-
+## 9) ➡️ Eventos de la FSM (version actual)
 1. EV_CONT
 2. EV_Dummy
 3. EV_Una_sola_mano
@@ -127,35 +188,33 @@ Reglas:
 
 ---
 
-## 7. Matriz de transiciones (resumen)
-
-### 7.1 Desde ST_Init
+## 10) 👾 Matriz de transiciones (resumen)
+### 10.1) Desde ST_Init
 - EV_Dummy -> ST_Detectando
 
-### 7.2 Desde ST_Detectando
+### 10.2) Desde ST_Detectando
 - EV_Una_sola_mano -> ST_AlertaLeve
 - EV_Maniobra_sinuosa_leve -> ST_AlertaLeve
 - EV_Maniobra_sinuosa_brusca -> ST_AlertaFuerte
 - EV_Sin_manos -> ST_AlertaFuerte
 - EV_CONT -> permanece
 
-### 7.3 Desde ST_AlertaLeve
+### 10.3) Desde ST_AlertaLeve
 - EV_Maniobra_sinuosa_brusca -> ST_AlertaFuerte
 - EV_Sin_manos -> ST_AlertaFuerte
 - EV_Timeout -> ST_Detectando
 - EV_CONT -> permanece
 
-### 7.4 Desde ST_AlertaFuerte
+### 10.4) Desde ST_AlertaFuerte
 - EV_Timeout -> ST_Detectando
 - EV_CONT -> permanece
 
-### 7.5 Desde ST_ERROR
+### 10.5) Desde ST_ERROR
 - Cualquier evento -> ST_ERROR
 
 ---
 
-## 8. Acciones de salida por transicion
-
+## 11) 🏃 Acciones de salida por transicion
 - irInit()
   - noTone(PIN_BUZZER)
   - digitalWrite(PIN_MOTOR_VIBRADOR, LOW)
@@ -178,8 +237,7 @@ Reglas:
 
 ---
 
-## 9. Generacion de eventos por estado
-
+## 12) 🎫 Generacion de eventos por estado
 - En ST_Init:
   - siempre genera EV_Dummy
 
@@ -202,9 +260,8 @@ Reglas:
 
 ---
 
-## 10. Relacion con el diagrama draw.io
+## 13) 📷 Relacion con el diagrama draw.io
 La implementacion refleja el nuevo diagrama solicitado:
-
 - Estado inicial explicito ST_Init
 - Estado ST_Detectando como monitoreo base
 - Estado unico ST_AlertaLeve
@@ -216,7 +273,7 @@ Nota: la vuelta a ST_Detectando desde alertas se realiza por EV_Timeout, tal com
 
 ---
 
-## 11. Depuracion por serial
+## 14) 🎞️ Depuracion por serial
 Si SERIAL_DEBUG_ENABLED = 1, se imprime:
 
 - Estado actual
@@ -227,8 +284,7 @@ Esto permite seguir en tiempo real la evolucion de la FSM.
 
 ---
 
-## 12. Calibracion rapida
-
+## 15) 🔥 Calibracion rapida
 1. Ajustar UMBRAL_MANO segun valores reales de FSR.
 2. Ajustar UMBRAL_MOVIMIENTO_LEVE para sensibilidad de movimiento suave.
 3. Ajustar UMBRAL_MOVIMIENTO_BRUSCO para disparo de alerta fuerte.
@@ -239,8 +295,7 @@ Recomendacion: calibrar mirando valores por Serial y moviendo los potenciometros
 
 ---
 
-## 13. Pruebas funcionales sugeridas
-
+## 16) 📄 Pruebas funcionales sugeridas
 1. Encendido del sistema: ST_Init debe pasar a ST_Detectando por EV_Dummy.
 2. Una mano detectada: ST_Detectando -> ST_AlertaLeve.
 3. Maniobra leve: ST_Detectando -> ST_AlertaLeve.
@@ -252,7 +307,6 @@ Recomendacion: calibrar mirando valores por Serial y moviendo los potenciometros
 
 ---
 
-## 14. Archivo principal
+## 17) 📁 Archivo principal
 Toda la logica esta en:
-
-- sketch.ino
+- main.cpp

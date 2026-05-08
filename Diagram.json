@@ -1,52 +1,118 @@
 {
   "version": 1,
-  "author": "Lucas Seibane",
+  "author": "KK",
   "editor": "wokwi",
   "parts": [
-    { "type": "wokwi-breadboard", "id": "bb1", "top": 45, "left": -170, "attrs": {} },
-    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 52.7, "left": -293, "attrs": {} },
-    { "type": "wokwi-potentiometer", "id": "pot1", "top": -108, "left": -86.6, "attrs": {} },
-    { "type": "wokwi-potentiometer", "id": "pot2", "top": -108, "left": 143.8, "attrs": {} },
-    { "type": "wokwi-potentiometer", "id": "pot3", "top": -108, "left": 28.6, "attrs": {} },
-    { "type": "wokwi-buzzer", "id": "bz2", "top": 233, "left": 311, "attrs": { "volume": "0.1" } },
-    { "type": "wokwi-vcc", "id": "vcc1", "top": 171.6, "left": 468.8, "attrs": {} },
-    { "type": "wokwi-led", "id": "led1", "top": 54, "left": 272.6, "attrs": { "color": "red" } },
+    { "type": "wokwi-breadboard", "id": "bb1", "top": -99, "left": 2.8, "attrs": {} },
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 148.7, "left": 273.4, "attrs": {} },
+    { "type": "wokwi-vcc", "id": "vcc1", "top": -124.04, "left": -38.4, "attrs": {} },
+    { "type": "wokwi-gnd", "id": "gnd1", "top": -67.2, "left": -39, "attrs": {} },
+    {
+      "type": "wokwi-buzzer",
+      "id": "bz2",
+      "top": -189.6,
+      "left": 549,
+      "attrs": { "volume": "0.1" }
+    },
+    { "type": "wokwi-potentiometer", "id": "pot1", "top": 133.1, "left": 115, "attrs": {} },
+    { "type": "wokwi-potentiometer", "id": "pot2", "top": 133.1, "left": 460.6, "attrs": {} },
+    { "type": "wokwi-potentiometer", "id": "pot3", "top": -10.9, "left": 287.8, "attrs": {} },
+    {
+      "type": "wokwi-text",
+      "id": "text1",
+      "top": 240,
+      "left": 124.8,
+      "attrs": { "text": "FSR Izq" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "text2",
+      "top": 230.4,
+      "left": 470.4,
+      "attrs": { "text": "FSR Der\n" }
+    },
     {
       "type": "wokwi-resistor",
       "id": "r1",
-      "top": 99.95,
-      "left": 297.6,
+      "top": -15.25,
+      "left": 172.8,
       "attrs": { "value": "150" }
+    },
+    { "type": "wokwi-led", "id": "led1", "top": -61.2, "left": 215, "attrs": { "color": "red" } },
+    {
+      "type": "wokwi-text",
+      "id": "text3",
+      "top": -76.8,
+      "left": 201.6,
+      "attrs": { "text": "Vibrador" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "text4",
+      "top": -163.2,
+      "left": 624,
+      "attrs": { "text": "Buzzer" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "text5",
+      "top": -9.6,
+      "left": 364.8,
+      "attrs": { "text": "AS5600" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "text6",
+      "top": -96,
+      "left": -124.8,
+      "attrs": { "text": "Fuente 5v" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "text7",
+      "top": -19.2,
+      "left": 652.8,
+      "attrs": { "text": "Uso fuente externa de 5v\nCOMPARTO MASA" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "text8",
+      "top": 316.8,
+      "left": 432,
+      "attrs": { "text": "Linea de alimentación (3,3V)" }
     }
   ],
   "connections": [
     [ "esp:TX0", "$serialMonitor:RX", "", [] ],
     [ "esp:RX0", "$serialMonitor:TX", "", [] ],
-    [ "esp:3V3", "bb1:tp.1", "red", [ "h16", "v-154" ] ],
-    [ "esp:GND.1", "bb1:tn.1", "black", [ "h10", "v0" ] ],
-    [ "bb1:bp.50", "vcc1:VCC", "red", [ "v-0.9", "h85.6" ] ],
-    [ "bb1:bn.50", "bb1:tn.50", "black", [ "v-1.3", "h56.8", "v-172.8" ] ],
-
-    [ "pot1:GND", "bb1:tn.7", "black", [ "v34" ] ],
-    [ "pot1:VCC", "bb1:tp.9", "red", [ "v34" ] ],
-    [ "pot1:SIG", "esp:D34", "green", [ "v0" ] ],
-
-    [ "pot2:GND", "bb1:tn.27", "black", [ "v34" ] ],
-    [ "pot2:VCC", "bb1:tp.29", "red", [ "v34" ] ],
-    [ "esp:D35", "pot2:SIG", "green", [ "v-4", "h468" ] ],
-
-    [ "pot3:GND", "bb1:tn.16", "black", [ "v34" ] ],
-    [ "pot3:VCC", "bb1:tp.18", "red", [ "v34" ] ],
-    [ "esp:D32", "pot3:SIG", "green", [ "v-8", "h351" ] ],
-
-    [ "esp:D33", "bz2:2", "orange", [ "h-44", "v204", "h670" ] ],
-    [ "bb1:bn.44", "bz2:1", "black", [ "v0" ] ],
-    [ "esp:D27", "bb1:53t.c", "red", [ "h-56", "v-298", "h698" ] ],
-    [ "bb1:46t.e", "bb1:bn.37", "black", [ "v0" ] ],
-    [ "led1:A", "bb1:47t.a", "", [ "$bb" ] ],
-    [ "led1:C", "bb1:46t.a", "", [ "$bb" ] ],
-    [ "r1:1", "bb1:47t.b", "", [ "$bb" ] ],
-    [ "r1:2", "bb1:53t.b", "", [ "$bb" ] ]
+    [ "r3:1", "led4:A", "green", [ "v0" ] ],
+    [ "led4:C", "esp:GND.1", "green", [ "v138.64", "h-88.39", "v102.35", "h600.84", "v-182.05" ] ],
+    [ "r3:2", "esp:D2", "green", [ "v99.14", "h278.51", "v-37.5" ] ],
+    [ "vcc1:VCC", "bb1:tp.1", "red", [ "v0" ] ],
+    [ "gnd1:GND", "bb1:tn.1", "black", [ "v0" ] ],
+    [ "esp:GND.1", "bb1:bn.49", "black", [ "h0" ] ],
+    [ "esp:3V3", "bb1:bp.50", "red", [ "h278.1", "v-219.9" ] ],
+    [ "pot1:GND", "bb1:bn.6", "black", [ "v19.2", "h-38.4", "v-113.9" ] ],
+    [ "bb1:bn.36", "pot2:GND", "black", [ "h-0.8", "v123.5", "h38.4" ] ],
+    [ "pot3:GND", "bb1:bn.25", "black", [ "v0" ] ],
+    [ "pot1:VCC", "bb1:bp.15", "red", [ "v19.2", "h37.6", "v-123.9" ] ],
+    [ "pot2:VCC", "bb1:bp.45", "red", [ "v19.2", "h37.6", "v-123.9" ] ],
+    [ "pot3:VCC", "bb1:bp.26", "red", [ "v0" ] ],
+    [ "pot2:SIG", "esp:D34", "green", [ "v28.8", "h-58", "v-96", "h-172.8", "v57.8" ] ],
+    [ "pot1:SIG", "esp:D33", "green", [ "v28.8", "h57.2", "v-9.6" ] ],
+    [ "pot3:SIG", "esp:D35", "green", [ "v57.6", "h-67.6", "v96.4" ] ],
+    [ "bz2:2", "esp:D21", "green", [ "v364.8", "h-202", "v-66.8" ] ],
+    [ "bb1:tn.12", "r1:1", "black", [ "v0" ] ],
+    [ "esp:D32", "led1:A", "green", [ "h0" ] ],
+    [ "pot3:GND", "bb1:31b.j", "", [ "$bb" ] ],
+    [ "pot3:SIG", "bb1:32b.j", "", [ "$bb" ] ],
+    [ "pot3:VCC", "bb1:33b.j", "", [ "$bb" ] ],
+    [ "r1:1", "bb1:16t.e", "", [ "$bb" ] ],
+    [ "r1:2", "bb1:22t.e", "", [ "$bb" ] ],
+    [ "led1:A", "bb1:23t.d", "", [ "$bb" ] ],
+    [ "led1:C", "bb1:22t.d", "", [ "$bb" ] ],
+    [ "bz2:1", "bb1:tn.47", "black", [ "v0" ] ],
+    [ "bb1:tn.50", "bb1:bn.50", "black", [ "h37.6", "v174" ] ]
   ],
   "dependencies": {}
 }
