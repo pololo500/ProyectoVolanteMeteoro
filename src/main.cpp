@@ -180,12 +180,12 @@ unsigned long gUnaManoDesde = 0;
 // Matriz de transición de estados
 transition state_table[MAX_STATES][MAX_EVENTS] =
 	{
-		/*Estado*/																								   /*EV_CONT,  EV_Dummy,		EV_Una_sola_mano,	EV_Maniobra_sinuosa_leve,	EV_Maniobra_sinuosa_brusca,	EV_Sin_manos,	EV_Timeout,		EV_UNKNOW */
-		/*ST_INIT*/ {none, irDetectando, none, none, none, none, none, irError},								   // ST_INIT
-		/*ST_DETECTANDO*/ {none, none, irAlertaLeve, irAlertaLeve, irAlertaFuerte, irAlertaFuerte, none, irError}, // ST_DETECTANDO
-		/*ST_ALERTA_LEVE*/ {none, none, none, none, irAlertaFuerte, irAlertaFuerte, irDetectando, irError},		   // ST_ALERTA_LEVE
-		/*ST_ALERTA_FUERTE*/ {none, none, none, none, none, none, irDetectando, irError},						   // ST_ALERTA_FUERTE
-		/*ST_ERROR*/ {none, none, none, none, none, none, irInit, irError}										   // ST_ERROR
+		/*Estado*/			/*EV_CONT,  EV_Dummy,		EV_Una_sola_mano,	EV_Maniobra_sinuosa_leve,	EV_Maniobra_sinuosa_brusca,	EV_Sin_manos,	EV_Timeout,		EV_UNKNOW */
+		/*ST_INIT*/ 			{none,	irDetectando,	none, 				none, 						none, 						none, 			none, 			irError}, // ST_INIT
+		/*ST_DETECTANDO*/ 		{none, 	none, 			irAlertaLeve, 		irAlertaLeve, 				irAlertaFuerte, 			irAlertaFuerte, none, 			irError}, // ST_DETECTANDO
+		/*ST_ALERTA_LEVE*/ 		{none, 	none, 			none, 				none, 						irAlertaFuerte, 			irAlertaFuerte, irDetectando, 	irError}, // ST_ALERTA_LEVE
+		/*ST_ALERTA_FUERTE*/	{none, 	none, 			none, 				none, 						none, 						none, 			irDetectando, 	irError}, // ST_ALERTA_FUERTE
+		/*ST_ERROR*/ 			{none, 	none, 			none, 				none, 						none, 						none, 			irInit, 		irError}  // ST_ERROR
 };
 
 // ========================== FUNCIONES ==========================
@@ -305,10 +305,10 @@ events get_new_event()
 		return EV_CONT;
 
 	if (gAlarmaSolicitada) // si llega comando del celular para activar alarma
-  {
-    gAlarmaSolicitada = false;
-    return EV_SIN_MANOS;
-  }
+  	{
+    	gAlarmaSolicitada = false;
+    	return EV_SIN_MANOS;
+  	}
 
 	gLastControlTick = ct;
 	actualizarLecturas();
@@ -540,43 +540,42 @@ void callback(char* topic, byte* message, unsigned int length)
 
   DebugPrint(stMensaje);
 
-	stMensaje.trim();//sacacar salto de linea que puede romper el mensaje
-	if (strcmp(topic, TOPIC_COMANDOS) != 0)// verificar que sea el topico de comandos
-  	return;
+  stMensaje.trim();//sacacar salto de linea que puede romper el mensaje
+  if (strcmp(topic, TOPIC_COMANDOS) != 0)// verificar que sea el topico de comandos
+    return;
   
   if (stMensaje == "ALARMA")
     gAlarmaSolicitada = true;
-	else if (stMensaje.startsWith("UMBRAL_MANO:"))
+  else if (stMensaje.startsWith("UMBRAL_MANO:"))
   {
-    String valor = stMensaje.substring(12);
-		int nuevoValor = valor.toInt();
-		if(nuevoValor >= 500 && nuevoValor <= 3000)
-    	umbralMano = nuevoValor;
+	String valor = stMensaje.substring(12);
+	int nuevoValor = valor.toInt();
+	if(nuevoValor >= 500 && nuevoValor <= 3000)
+		umbralMano = nuevoValor;
 
-    DebugPrint("Nuevo umbral mano: ");
-    DebugPrint(umbralMano);
+	DebugPrint("Nuevo umbral mano: ");
+	DebugPrint(umbralMano);
   }
-	else if (stMensaje.startsWith("UMBRAL_LEVE:"))
+  else if (stMensaje.startsWith("UMBRAL_LEVE:"))
   {
     String valor = stMensaje.substring(12);
-		int nuevoValor = valor.toInt();
-		if(nuevoValor >= 20 && nuevoValor <= 300)
+	int nuevoValor = valor.toInt();
+	if(nuevoValor >= 20 && nuevoValor <= 300)
     	umbralMovimientoLeve = nuevoValor;
 
     DebugPrint("Nuevo umbral leve: ");
     DebugPrint(umbralMovimientoLeve);
   }
-	else if (stMensaje.startsWith("UMBRAL_BRUSCO:"))
+  else if (stMensaje.startsWith("UMBRAL_BRUSCO:"))
   {
-    String valor = stMensaje.substring(14);
-		int nuevoValor = valor.toInt();
-		if(nuevoValor >= 100 && nuevoValor <= 1000 && nuevoValor > umbralMovimientoLeve)
+	String valor = stMensaje.substring(14);
+	int nuevoValor = valor.toInt();
+	if(nuevoValor >= 100 && nuevoValor <= 1000 && nuevoValor > umbralMovimientoLeve)
     	umbralMovimientoBrusco = nuevoValor;
-
-    DebugPrint("Nuevo umbral brusco: ");
-    DebugPrint(umbralMovimientoBrusco);
+	
+	DebugPrint("Nuevo umbral brusco: ");
+	DebugPrint(umbralMovimientoBrusco);
   }
-  
 }
 
 String generarJsonSensores(){

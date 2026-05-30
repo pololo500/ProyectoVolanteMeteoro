@@ -1,0 +1,23 @@
+<resources>
+    <string name="app_name">Volante Meteoro App</string>
+    <string name="app_title">Volante Meteoro</string>
+    <string name="first_screen_description">Primera pantalla de ejemplo. Por ahora solo muestra un boton y un texto de estado.</string>
+    <string name="button_umbrales">Guardar umbrales</string>
+    <string name="button_alarm">Disparar alarma</string>
+    <string name="status_idle">Estado: todavia no se presiono nada.</string>
+    <string name="thresholds_title">Configuracion de umbrales</string>
+    <string name="alarm_card_title">Accion manual</string>
+    <string name="alarm_card_description">Si queres, desde aca podes solicitar una alarma manual para probar la respuesta del sistema.</string>
+    <string name="umbral_mano_label">Umbral manos</string>
+    <string name="umbral_leve_label">Umbral volante leve</string>
+    <string name="umbral_brusco_label">Umbral volante brusco</string>
+    <string name="default_umbral_mano">1366</string>
+    <string name="default_umbral_volante_leve">80</string>
+    <string name="default_umbral_volante_brusco">260</string>
+    <string name="monitoring_title">Monitoreo en tiempo real</string>
+    <string name="label_estado">Estado:</string>
+    <string name="label_fsr_izq">FSR Izquierdo:</string>
+    <string name="label_fsr_der">FSR Derecho:</string>
+    <string name="label_volante">Volante:</string>
+    <string name="value_placeholder">---</string>
+</resources>
