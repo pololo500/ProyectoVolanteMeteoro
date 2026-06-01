@@ -64,8 +64,8 @@ struct TimingConfig {
 };
 
 struct NetworkConfig {
-    const char *ssid = "SPEEDYMONICA";
-    const char *password = "#Pr0f3s5i0n4l!";
+    const char *ssid = "SSID";
+    const char *password = "PASS";
     const char *mqttHost = "broker.emqx.io";
     uint16_t mqttPort = 1883;
     const char *clientId = "esp32_volante_01";
