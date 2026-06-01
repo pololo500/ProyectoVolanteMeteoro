@@ -1,0 +1,289 @@
+Actúa como un ingeniero senior de Android con experiencia en Kotlin, Jetpack Compose, arquitectura limpia y comunicación MQTT. Necesito que generes exclusivamente la aplicación Android para un sistema de monitoreo y control de un volante con ESP32. No generes código del ESP32, no generes simuladores, no generes backend, no generes documentación salvo lo mínimo necesario para entender el proyecto. Quiero solo la app Android completa, bien estructurada, moderna, robusta y lista para compilar.
+
+OBJETIVO GENERAL
+
+La app debe comunicarse con un ESP32 por MQTT, mostrar el estado actual del sistema, visualizar lecturas de sensores en tiempo real y permitir enviar comandos al ESP32. La app debe ser visualmente atractiva, estable, modular, fácil de mantener y preparada para escalar.
+
+Quiero que la solución tenga:
+- arquitectura limpia
+- bajo acoplamiento
+- alta cohesión
+- UI moderna con Jetpack Compose
+- manejo correcto del ciclo de vida
+- reconexión MQTT automática
+- buena experiencia de usuario
+- manejo de errores y estados de conexión
+- separación clara entre UI, dominio y datos
+
+STACK REQUERIDO
+
+Usa Kotlin.
+Usa Jetpack Compose como UI principal.
+Usa Material 3.
+Usa arquitectura MVVM, idealmente con separación en capas.
+Si lo consideras mejor, organiza el proyecto con capas:
+- presentation
+- domain
+- data
+- mqtt
+- ui
+- model
+- util
+
+Si usas dependencias, elige las más adecuadas y actuales para:
+- Jetpack Compose
+- ViewModel
+- Coroutines
+- MQTT
+- navegación si la necesitas
+- persistencia de configuración si la necesitas
+
+No uses XML salvo que sea estrictamente necesario. Prefiero Compose completo.
+
+CONTEXTO FUNCIONAL
+
+La app se conecta a un broker MQTT y se comunica con el ESP32 usando estos tópicos:
+
+- volante/estado
+- volante/sensores
+- volante/comandos
+
+El broker por defecto puede ser:
+- broker.emqx.io
+- puerto 1883
+
+La app debe:
+- conectarse al broker MQTT
+- suscribirse a los tópicos correctos
+- mostrar el estado que publique el ESP32
+- mostrar los sensores en tiempo real
+- enviar comandos al ESP32
+- manejar pérdida de conexión y reconexión
+- mostrar claramente si el broker está conectado o desconectado
+
+COMANDOS QUE DEBE ENVIAR LA APP
+
+La app debe permitir enviar, al menos, estos mensajes por MQTT:
+- ALARMA
+- UMBRAL_MANO:<valor>
+- UMBRAL_LEVE:<valor>
+- UMBRAL_BRUSCO:<valor>
+
+Si incluyes controles para cambiar umbrales, hazlos bien pensados, con validación, sliders o campos numéricos según corresponda, y con confirmación visual de envío.
+
+DATOS QUE RECIBE LA APP
+
+El ESP32 publicará al menos:
+- estado actual
+- fsrIzq
+- fsrDer
+- volante
+- timestamp
+
+La app debe procesar esos datos y mostrarlos en pantalla de forma clara y atractiva.
+
+ESTADOS DEL SISTEMA
+
+La app debe entender y mostrar correctamente estos estados:
+- ST_INIT
+- ST_DETECTANDO
+- ST_ALERTA_LEVE
+- ST_ALERTA_FUERTE
+- ST_ALARMA_CELULAR
+- ST_ERROR
+
+La interfaz debe reflejar el estado actual con colores, iconos o indicadores visuales distintos según el estado.
+
+REQUISITOS DE UX/UI
+
+Quiero una app que se vea profesional, no genérica.
+Diseña una interfaz moderna, clara y bien jerarquizada.
+
+Debe incluir:
+- pantalla principal con estado actual
+- tarjetas para sensores
+- sección de conexión MQTT
+- botones de acción rápida
+- controles para enviar comandos
+- indicador visual de conexión
+- feedback visual cuando se envía un comando
+- manejo elegante de errores
+- estética limpia, moderna y diferenciada
+
+La UI debe estar pensada para pantallas móviles reales:
+- Android teléfono
+- posible uso en tablet
+- responsive
+- buen espaciado
+- tipografía legible
+- colores coherentes
+- buena contrastación
+
+Si propones una línea visual, mantén consistencia completa en toda la app. No quiero un diseño genérico o “plantilla”. Hazlo con intención visual.
+
+ARQUITECTURA DE LA APP
+
+Quiero una arquitectura modular y desacoplada. Idealmente separa así:
+
+- data
+  - implementación MQTT
+  - conexión a broker
+  - publicación y suscripción
+  - parseo de mensajes
+- domain
+  - modelos de estado
+  - casos de uso
+  - reglas de negocio
+- presentation
+  - ViewModel
+  - estado de UI
+  - eventos de UI
+- ui
+  - pantallas
+  - componentes reutilizables
+  - tema
+- navigation
+  - si necesitas navegación
+- model
+  - estructuras de datos
+
+No concentres toda la lógica en un solo archivo. No mezcles MQTT con UI.
+
+MANEJO DE ESTADO
+
+Usa un estado central claro para la UI.
+Debe reflejar:
+- estado de conexión MQTT
+- último estado recibido del ESP32
+- valores de sensores
+- mensajes de error
+- estado de envío de comandos
+- loading inicial si aplica
+
+Quiero que la app sea reactiva:
+- cuando llegue un mensaje MQTT, la UI debe actualizarse
+- cuando se pierda conexión, la UI debe reflejarlo
+- cuando se reintente conexión, debe verse
+- cuando se envíe un comando, debe haber confirmación visible
+
+MQTT
+
+Implementa un cliente MQTT robusto.
+Debe:
+- conectarse al broker
+- suscribirse a los tópicos correctos
+- publicar comandos
+- reconectar automáticamente si se corta la conexión
+- exponer el estado de conexión a la UI
+- evitar bloqueos de UI
+- correr en corrutinas o mecanismos asíncronos correctos
+
+Si usas una librería MQTT concreta, elige una que funcione bien en Android y justifica brevemente en el código o estructura, sin meter complejidad innecesaria.
+
+PANTALLAS MÍNIMAS
+
+Quiero al menos estas pantallas o secciones:
+1. Dashboard principal
+- estado del sistema
+- sensores en tarjetas
+- conexión MQTT
+- comandos rápidos
+
+2. Configuración
+- broker MQTT
+- puerto
+- credenciales si decides soportarlas
+- guardado local de preferencias
+- opción de reconectar manualmente
+
+3. Historial o registro
+- últimos mensajes recibidos
+- últimos comandos enviados
+- errores de conexión, si existen
+
+Si consideras que menos pantallas es mejor, puedes integrarlo en una sola pantalla bien estructurada, pero no sacrifiques claridad ni funcionalidad.
+
+REGISTRO Y DEBUG
+
+Agrega un registro interno o panel simple de eventos para:
+- conexión MQTT
+- desconexión
+- mensajes recibidos
+- comandos enviados
+- errores de parseo
+
+Debe ayudar a depurar el sistema en pruebas reales.
+
+PERSISTENCIA
+
+Si guardas configuración, hazlo de forma simple y robusta.
+Puedes usar:
+- DataStore
+- SharedPreferences si es necesario
+- o una solución ligera equivalente
+
+Guarda como mínimo:
+- broker
+- puerto
+- últimos umbrales usados, si decides que la app los administre
+- preferencias de usuario relevantes
+
+VALIDACIONES
+
+La app debe validar:
+- broker no vacío
+- puerto válido
+- umbrales dentro de rango
+- valores numéricos correctos
+- comandos bien formateados antes de publicar
+
+No permitas enviar valores inválidos al ESP32.
+
+CALIDAD DEL CÓDIGO
+
+Quiero código limpio, legible y bien estructurado.
+Debe incluir:
+- nombres claros
+- funciones pequeñas
+- clases con una sola responsabilidad
+- separación por archivos
+- sin duplicación de lógica
+- sin acoplar UI con MQTT
+- sin variables globales innecesarias
+- sin código experimental o incompleto
+
+Si usas comentarios, que sean solo donde aporten valor real.
+
+ENTREGABLES ESPERADOS
+
+Genera:
+- proyecto Android completo
+- estructura de archivos
+- `build.gradle.kts` o dependencias necesarias
+- tema Compose
+- ViewModels
+- data source MQTT
+- pantallas Compose
+- modelos de datos
+- manejo de conexión
+- implementación de comandos
+- cualquier archivo necesario para que compile
+
+IMPORTANTE
+
+- No generes código del ESP32.
+- No generes Python.
+- No generes backend.
+- No generes solo un ejemplo mínimo: quiero una app completa y bien pensada.
+- Prioriza modularidad, mantenibilidad y experiencia de usuario.
+- Usa un diseño moderno y profesional.
+- Si debes elegir entre simplicidad extrema y una arquitectura más sólida, elige la que mejor escale sin complicar de más.
+- Antes de escribir el código, dame primero un resumen de la arquitectura propuesta y luego genera el proyecto completo.
+
+SI HAY DECISIONES ABIERTAS
+
+Si falta una decisión para seguir, elige la opción que:
+- reduzca el acoplamiento
+- facilite mantenimiento
+- mejore la experiencia de usuario
+- haga la app más robusta en condiciones reales de conexión MQTT
