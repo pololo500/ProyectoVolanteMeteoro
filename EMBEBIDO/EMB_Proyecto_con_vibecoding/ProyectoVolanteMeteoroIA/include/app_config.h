@@ -14,7 +14,7 @@ inline RuntimeConfig makeDefaultRuntimeConfig() {
     RuntimeConfig cfg;
     cfg.thresholds = ThresholdConfig{1366, 80, 260};
     cfg.timings = TimingConfig{700, 2500, 4000, 5000, 3000, 150, 500, 5000, 3000, 250};
-    cfg.network = NetworkConfig{"SPEEDYMONICA", "#Pr0f3s5i0n4l!", "broker.emqx.io", 1883, "esp32_volante_01"};
+    cfg.network = NetworkConfig{"SSID", "PASS", "broker.emqx.io", 1883, "esp32_volante_01"};
     cfg.topics = TopicConfig{"volante/estado", "volante/sensores", "volante/comandos"};
     return cfg;
 }
