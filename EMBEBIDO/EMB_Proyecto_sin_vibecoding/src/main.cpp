@@ -1,4 +1,7 @@
 #include <Arduino.h>
+#include <WiFi.h>
+#include "PubSubClient.h"
+#include <ArduinoJson.h>
 
 // ========================== MACROS ==========================
 // Habilitacion de debug para impresion por puerto serial
@@ -27,7 +30,7 @@
 
 // ========================== CONSTANTES ==========================
 // CAMBIAR ESTA CONSTANTE SI SE USA WOKWI O NO
-const bool WOKWI = false;
+const bool WOKWI = true;
 // WOKWI = FALSE 	-> VSCODE
 // WOKWI = TRUE 	-> WOKWI
 
@@ -40,11 +43,6 @@ const int PIN_MOTOR_VIBRADOR = 32;
 const int PIN_FSR_IZQ = 33;
 const int PIN_FSR_DER = 34;
 const int PIN_VOLANTE = 35;
-
-// Umbrales
-const int UMBRAL_MANO = 1366;
-const int UMBRAL_MOVIMIENTO_LEVE = 80;
-const int UMBRAL_MOVIMIENTO_BRUSCO = 260;
 
 // Buzzer
 const int BUZZER_OFF = 0;
@@ -59,10 +57,11 @@ const int BUZZER_RESOLUTION = 8;
 const int BUZZER_CHANNEL = 0;
 
 // FreeRTOS
-const int BUZZER_STACK_SIZE = 2048;
-const int SENSORES_STACK_SIZE = 4096;
-const int SENSOR_TASK_PRIORITY = 2;
+const int STACK_SIZE_2048 = 2048;
+const int STACK_SIZE_4096 = 4096;
+const int SENSOR_TASK_PRIORITY = 3;
 const int BUZZER_TASK_PRIORITY = 1;
+const int WIFI_TASK_PRIORITY = 2;
 const int BUZZER_QUEUE_SIZE = 1;
 
 // Tiempos
@@ -75,6 +74,29 @@ const int SENSOR_TASK_DELAY = 20;
 const int BUZZER_DELAY_OFF = 100;
 const int BUZZER_DELAY_ON = 300;
 const int BUZZER_DELAY_CONTINUO = 100;
+const int WIFI_TASK_DELAY = 100;
+const int RECONNECT_DELAY = 5000;
+const int SENSOR_PUBLISH_INTERVAL = 1000;
+
+// Varibles globales
+int umbralMano = 1366;
+int umbralMovimientoLeve = 80;
+int umbralMovimientoBrusco = 260;
+volatile bool gAlarmaSolicitada = false;
+
+// Wifi y MQTT
+const char* ssid = "Wokwi-GUEST";
+const char* password = "";
+
+const char* MQTT_SERVER = "broker.emqx.io";
+const int MQTT_PORT = 1883;
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+// Topicos
+const char* TOPIC_ESTADO   = "volante/estado";
+const char* TOPIC_SENSOR   = "volante/sensores";
+const char* TOPIC_COMANDOS = "volante/comandos"; //comandos desde el celular
 
 // ========================== ENUMS ==========================
 enum states
@@ -139,6 +161,7 @@ void irDetectando();
 void irAlertaLeve();
 void irAlertaFuerte();
 void irError();
+String generarJsonSensores();
 
 typedef void (*transition)();
 
@@ -157,12 +180,12 @@ unsigned long gUnaManoDesde = 0;
 // Matriz de transición de estados
 transition state_table[MAX_STATES][MAX_EVENTS] =
 	{
-		/*Estado*/																								   /*EV_CONT,  EV_Dummy,		EV_Una_sola_mano,	EV_Maniobra_sinuosa_leve,	EV_Maniobra_sinuosa_brusca,	EV_Sin_manos,	EV_Timeout,		EV_UNKNOW */
-		/*ST_INIT*/ {none, irDetectando, none, none, none, none, none, irError},								   // ST_INIT
-		/*ST_DETECTANDO*/ {none, none, irAlertaLeve, irAlertaLeve, irAlertaFuerte, irAlertaFuerte, none, irError}, // ST_DETECTANDO
-		/*ST_ALERTA_LEVE*/ {none, none, none, none, irAlertaFuerte, irAlertaFuerte, irDetectando, irError},		   // ST_ALERTA_LEVE
-		/*ST_ALERTA_FUERTE*/ {none, none, none, none, none, none, irDetectando, irError},						   // ST_ALERTA_FUERTE
-		/*ST_ERROR*/ {none, none, none, none, none, none, irInit, irError}										   // ST_ERROR
+		/*Estado*/			/*EV_CONT,  EV_Dummy,		EV_Una_sola_mano,	EV_Maniobra_sinuosa_leve,	EV_Maniobra_sinuosa_brusca,	EV_Sin_manos,	EV_Timeout,		EV_UNKNOW */
+		/*ST_INIT*/ 			{none,	irDetectando,	none, 				none, 						none, 						none, 			none, 			irError}, // ST_INIT
+		/*ST_DETECTANDO*/ 		{none, 	none, 			irAlertaLeve, 		irAlertaLeve, 				irAlertaFuerte, 			irAlertaFuerte, none, 			irError}, // ST_DETECTANDO
+		/*ST_ALERTA_LEVE*/ 		{none, 	none, 			none, 				none, 						irAlertaFuerte, 			irAlertaFuerte, irDetectando, 	irError}, // ST_ALERTA_LEVE
+		/*ST_ALERTA_FUERTE*/	{none, 	none, 			none, 				none, 						none, 						none, 			irDetectando, 	irError}, // ST_ALERTA_FUERTE
+		/*ST_ERROR*/ 			{none, 	none, 			none, 				none, 						none, 						none, 			irInit, 		irError}  // ST_ERROR
 };
 
 // ========================== FUNCIONES ==========================
@@ -203,6 +226,8 @@ void irInit()
 	setearLed(false);
 	current_state = ST_INIT;
 	gStateEntryTick = millis();
+	if(client.connected())
+		client.publish(TOPIC_ESTADO,"INIT");
 }
 
 void irDetectando()
@@ -211,6 +236,8 @@ void irDetectando()
 	setearLed(false);
 	current_state = ST_DETECTANDO;
 	gStateEntryTick = millis();
+	if(client.connected())
+		client.publish(TOPIC_ESTADO,"DETECTANDO");
 }
 
 void irAlertaLeve()
@@ -219,6 +246,8 @@ void irAlertaLeve()
 	emitirNotaLeve();
 	current_state = ST_ALERTA_LEVE;
 	gStateEntryTick = millis();
+	if(client.connected())
+		client.publish(TOPIC_ESTADO,"ALERTA_LEVE");
 }
 
 void irAlertaFuerte()
@@ -227,6 +256,8 @@ void irAlertaFuerte()
 	emitirCancionFuerte();
 	current_state = ST_ALERTA_FUERTE;
 	gStateEntryTick = millis();
+	if(client.connected())
+		client.publish(TOPIC_ESTADO,"ALERTA_FUERTE");
 }
 
 void irError()
@@ -235,6 +266,8 @@ void irError()
 	emitirCancionFuerte();
 	current_state = ST_ERROR;
 	gStateEntryTick = millis();
+	if(client.connected())
+		client.publish(TOPIC_ESTADO,"ERROR");
 }
 
 void actualizarLecturas()
@@ -249,16 +282,16 @@ void actualizarLecturas()
 	gValorVolanteAnterior = gLectura.volante;
 
 	// Clasificacion de manos en true o false segun umbral predefinido
-	gLectura.manoIzq = (gLectura.fsrIzq >= UMBRAL_MANO);
-	gLectura.manoDer = (gLectura.fsrDer >= UMBRAL_MANO);
+	gLectura.manoIzq = (gLectura.fsrIzq >= umbralMano);
+	gLectura.manoDer = (gLectura.fsrDer >= umbralMano);
 	gLectura.unaMano = (gLectura.manoIzq ^ gLectura.manoDer);
 	gLectura.dosManos = (gLectura.manoIzq && gLectura.manoDer);
 	gLectura.sinManos = (!gLectura.manoIzq && !gLectura.manoDer);
 
 	// Clasificacion de maniobras en true o false segun umbrales predefinidos
-	gLectura.maniobraLeve = (gLectura.difVolante >= UMBRAL_MOVIMIENTO_LEVE && gLectura.difVolante < UMBRAL_MOVIMIENTO_BRUSCO);
-	gLectura.maniobraBrusca = (gLectura.difVolante >= UMBRAL_MOVIMIENTO_BRUSCO);
-	gLectura.volanteEstabilizado = (gLectura.difVolante < UMBRAL_MOVIMIENTO_LEVE);
+	gLectura.maniobraLeve = (gLectura.difVolante >= umbralMovimientoLeve && gLectura.difVolante < umbralMovimientoBrusco);
+	gLectura.maniobraBrusca = (gLectura.difVolante >= umbralMovimientoBrusco);
+	gLectura.volanteEstabilizado = (gLectura.difVolante < umbralMovimientoLeve);
 }
 
 // De la Máquina de Estados
@@ -270,6 +303,12 @@ events get_new_event()
 	// Timeout de control para evitar procesar eventos muy seguidos
 	if (diferencia < UMBRAL_DIFERENCIA_TIMEOUT)
 		return EV_CONT;
+
+	if (gAlarmaSolicitada) // si llega comando del celular para activar alarma
+  	{
+    	gAlarmaSolicitada = false;
+    	return EV_SIN_MANOS;
+  	}
 
 	gLastControlTick = ct;
 	actualizarLecturas();
@@ -349,9 +388,16 @@ void maquina_estados_deteccion_manos()
 // De Tareas FreeRTOS
 void sensor_task(void *pv)
 {
+	unsigned long lastPublish = 0;
 	while (true)
 	{
 		maquina_estados_deteccion_manos();
+		String json = generarJsonSensores();
+		if (millis() - lastPublish >= SENSOR_PUBLISH_INTERVAL){
+			if(client.connected())
+				client.publish(TOPIC_SENSOR,json.c_str());
+			lastPublish = millis();
+		}
 		vTaskDelay(pdMS_TO_TICKS(SENSOR_TASK_DELAY));
 	}
 }
@@ -418,6 +464,135 @@ void buzzer_task(void *pv)
 	}
 }
 
+void wifi_task(void *pv){
+	while(true){
+		if (WiFi.status() != WL_CONNECTED)// Verifica WiFi 
+			conectarWiFi(); 
+		if (WiFi.status() == WL_CONNECTED)//verifica mqtt solo si hay wifi
+		{
+			if (!client.connected())
+				conectarMQTT();
+			else
+				client.loop();//mantiene el mqtt funcionando
+		}
+		vTaskDelay(pdMS_TO_TICKS(WIFI_TASK_DELAY));
+	} 
+}
+
+// WIFI y MQTT
+void conectarWiFi()
+{
+  int intentos=0;
+	DebugPrint("Conectando WiFi...");
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED && intentos<20)
+  {
+    vTaskDelay(pdMS_TO_TICKS(500));
+		intentos++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED){
+    DebugPrint("WiFi conectado");
+	}
+	else{
+    DebugPrint("Error WiFi");
+	}
+}
+
+void conectarMQTT()
+{
+  static int intentos = 0;
+
+  if (client.connect("ESP32_VOLANTE"))
+  {
+    DebugPrint("MQTT conectado");
+
+    client.subscribe(TOPIC_COMANDOS);
+    intentos = 0;
+  }
+  else
+  {
+    intentos++;
+    DebugPrint("Error MQTT");
+
+    // Si falla muchas veces, esperar más tiempo
+    if (intentos >= 5)
+    {
+      intentos = 0;
+      vTaskDelay(pdMS_TO_TICKS(RECONNECT_DELAY));
+    }
+    else
+      vTaskDelay(pdMS_TO_TICKS(2000));
+  }
+}
+
+
+void callback(char* topic, byte* message, unsigned int length)
+{
+  String stMensaje;
+  
+  for (int i = 0; i < length; i++){
+    stMensaje += (char)message[i];
+  }
+
+  DebugPrint(stMensaje);
+
+  stMensaje.trim();//sacacar salto de linea que puede romper el mensaje
+  if (strcmp(topic, TOPIC_COMANDOS) != 0)// verificar que sea el topico de comandos
+    return;
+  
+  if (stMensaje == "ALARMA")
+    gAlarmaSolicitada = true;
+  else if (stMensaje.startsWith("UMBRAL_MANO:"))
+  {
+	String valor = stMensaje.substring(12);
+	int nuevoValor = valor.toInt();
+	if(nuevoValor >= 500 && nuevoValor <= 3000)
+		umbralMano = nuevoValor;
+
+	DebugPrint("Nuevo umbral mano: ");
+	DebugPrint(umbralMano);
+  }
+  else if (stMensaje.startsWith("UMBRAL_LEVE:"))
+  {
+    String valor = stMensaje.substring(12);
+	int nuevoValor = valor.toInt();
+	if(nuevoValor >= 20 && nuevoValor <= 300)
+    	umbralMovimientoLeve = nuevoValor;
+
+    DebugPrint("Nuevo umbral leve: ");
+    DebugPrint(umbralMovimientoLeve);
+  }
+  else if (stMensaje.startsWith("UMBRAL_BRUSCO:"))
+  {
+	String valor = stMensaje.substring(14);
+	int nuevoValor = valor.toInt();
+	if(nuevoValor >= 100 && nuevoValor <= 1000 && nuevoValor > umbralMovimientoLeve)
+    	umbralMovimientoBrusco = nuevoValor;
+	
+	DebugPrint("Nuevo umbral brusco: ");
+	DebugPrint(umbralMovimientoBrusco);
+  }
+}
+
+String generarJsonSensores(){
+	StaticJsonDocument<256> doc;
+
+	doc["estado"] = states_s[current_state];
+	doc["fsrIzq"] = gLectura.fsrIzq;
+	doc["fsrDer"] = gLectura.fsrDer;
+	doc["volante"] = gLectura.volante;
+	doc["timestamp"] = millis();
+
+	String json;
+	serializeJson(doc,json);
+
+	return json;
+}
+
 // Básicas
 void setup()
 {
@@ -435,18 +610,24 @@ void setup()
 	if(!WOKWI)
 	{
 		// Esta configuración es para VS Code:
-		ledcSetup(BUZZER_CHANNEL, FREQ_ALERTA, BUZZER_RESOLUTION);
-		ledcAttachPin(PIN_BUZZER, BUZZER_CHANNEL);
+		//ledcSetup(BUZZER_CHANNEL, FREQ_ALERTA, BUZZER_RESOLUTION);
+		//ledcAttachPin(PIN_BUZZER, BUZZER_CHANNEL);
 	}
 	else
 	{
 		// Esta configuración es para Wokwi:
-		// ledcAttach(PIN_BUZZER, FREQ_ALERTA, BUZZER_RESOLUTION);
-		// ledcWrite(PIN_BUZZER, 0);
+		ledcAttach(PIN_BUZZER, FREQ_ALERTA, BUZZER_RESOLUTION);
+		ledcWrite(PIN_BUZZER, 0);
 	}
 
 	// FreeRTOS
 	buzzerQueue = xQueueCreate(BUZZER_QUEUE_SIZE, sizeof(int));
+
+	// Wifi y MQTT
+	conectarWiFi();
+	client.setServer(MQTT_SERVER,MQTT_PORT);
+	client.setCallback(callback);
+	conectarMQTT();
 
 	// Actualizar lecturas y tick de control
 	gValorVolanteAnterior = analogRead(PIN_VOLANTE);
@@ -457,8 +638,9 @@ void setup()
 	new_event = EV_CONT;
 	irInit();
 
-	xTaskCreate(sensor_task, "SensorTask", SENSORES_STACK_SIZE, NULL, SENSOR_TASK_PRIORITY, NULL);
-	xTaskCreate(buzzer_task, "BuzzerTask", BUZZER_STACK_SIZE, NULL, BUZZER_TASK_PRIORITY, NULL);
+	xTaskCreate(sensor_task, "SensorTask", STACK_SIZE_4096, NULL, SENSOR_TASK_PRIORITY, NULL);
+	xTaskCreate(buzzer_task, "BuzzerTask", STACK_SIZE_2048, NULL, BUZZER_TASK_PRIORITY, NULL);
+	xTaskCreate(wifi_task,"WifiTask", STACK_SIZE_4096, NULL, WIFI_TASK_PRIORITY, NULL);
 }
 
 void loop()
