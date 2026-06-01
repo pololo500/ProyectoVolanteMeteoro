@@ -25,8 +25,22 @@
 		DebugPrint("-----------------------------------------------------"); \
 	}
 
-#define MAX_STATES 5
-#define MAX_EVENTS 8
+#define MAX_STATES 6
+#define MAX_EVENTS 9
+#define MAX_INTENTOS_WIFI 20
+#define DELAY_WIFI_REINTENTO 5000	// 5 segundos
+#define CANT_LETRAS_UMBRAL_BRUSCO 14
+#define CANT_LETRAS_UMBRAL_MANO 12
+#define UMBRAL_MANO_MIN 500
+#define UMBRAL_MANO_MAX 3000
+#define UMBRAL_BRUSCO_MIN 100
+#define UMBRAL_BRUSCO_MAX 1000
+#define UMBRAL_LEVE_MIN 20
+#define UMBRAL_LEVE_MAX 300
+#define BUADIOS_SERIAL 115200
+#define MAX_INTENTOS_MQTT 5
+#define DELAY_MQTT_REINTENTO 5000	// 5 segundos
+
 
 // ========================== CONSTANTES ==========================
 // CAMBIAR ESTA CONSTANTE SI SE USA WOKWI O NO
@@ -38,11 +52,11 @@ const bool WOKWI = true;
 // configuración PWM buzzer en setup()
 
 // Pines (ESP32 DevKit V1)
-const int PIN_BUZZER = 21;
-const int PIN_MOTOR_VIBRADOR = 32;
-const int PIN_FSR_IZQ = 33;
-const int PIN_FSR_DER = 34;
-const int PIN_VOLANTE = 35;
+const int PIN_BUZZER = 33;
+const int PIN_MOTOR_VIBRADOR = 27;
+const int PIN_FSR_IZQ = 34;
+const int PIN_FSR_DER = 35;
+const int PIN_VOLANTE = 4;
 
 // Buzzer
 const int BUZZER_OFF = 0;
@@ -79,13 +93,13 @@ const int RECONNECT_DELAY = 5000;
 const int SENSOR_PUBLISH_INTERVAL = 1000;
 
 // Varibles globales
-int umbralMano = 1366;
+int umbralMano = 1;
 int umbralMovimientoLeve = 80;
 int umbralMovimientoBrusco = 260;
 volatile bool gAlarmaSolicitada = false;
 
 // Wifi y MQTT
-const char* ssid = "Wokwi-GUEST";
+const char* ssid = "";
 const char* password = "";
 
 const char* MQTT_SERVER = "broker.emqx.io";
@@ -105,6 +119,7 @@ enum states
 	ST_DETECTANDO,
 	ST_ALERTA_LEVE,
 	ST_ALERTA_FUERTE,
+	ST_ALARMA_CELULAR,
 	ST_ERROR
 } current_state;
 
@@ -113,6 +128,7 @@ const char *states_s[] = {
 	"ST_Detectando",
 	"ST_AlertaLeve",
 	"ST_AlertaFuerte",
+	"ST_Alarma_Celular",
 	"ST_ERROR"};
 
 enum events
@@ -123,6 +139,7 @@ enum events
 	EV_MANIOBRA_SINUOSA_LEVE,
 	EV_MANIOBRA_SINUOSA_BRUSCA,
 	EV_SIN_MANOS,
+	EV_ALARMA_CELULAR,
 	EV_TIMEOUT,
 	EV_UNKNOW
 } new_event;
@@ -134,6 +151,7 @@ const char *events_s[] = {
 	"EV_Maniobra_sinuosa_leve",
 	"EV_Maniobra_sinuosa_brusca",
 	"EV_Sin_manos",
+	"EV_Alarma_celular",
 	"EV_Timeout",
 	"EV_UNKNOW"};
 
@@ -160,6 +178,7 @@ void irInit();
 void irDetectando();
 void irAlertaLeve();
 void irAlertaFuerte();
+void irAlarmaCelular();
 void irError();
 String generarJsonSensores();
 
@@ -180,12 +199,13 @@ unsigned long gUnaManoDesde = 0;
 // Matriz de transición de estados
 transition state_table[MAX_STATES][MAX_EVENTS] =
 	{
-		/*Estado*/			/*EV_CONT,  EV_Dummy,		EV_Una_sola_mano,	EV_Maniobra_sinuosa_leve,	EV_Maniobra_sinuosa_brusca,	EV_Sin_manos,	EV_Timeout,		EV_UNKNOW */
-		/*ST_INIT*/ 			{none,	irDetectando,	none, 				none, 						none, 						none, 			none, 			irError}, // ST_INIT
-		/*ST_DETECTANDO*/ 		{none, 	none, 			irAlertaLeve, 		irAlertaLeve, 				irAlertaFuerte, 			irAlertaFuerte, none, 			irError}, // ST_DETECTANDO
-		/*ST_ALERTA_LEVE*/ 		{none, 	none, 			none, 				none, 						irAlertaFuerte, 			irAlertaFuerte, irDetectando, 	irError}, // ST_ALERTA_LEVE
-		/*ST_ALERTA_FUERTE*/	{none, 	none, 			none, 				none, 						none, 						none, 			irDetectando, 	irError}, // ST_ALERTA_FUERTE
-		/*ST_ERROR*/ 			{none, 	none, 			none, 				none, 						none, 						none, 			irInit, 		irError}  // ST_ERROR
+		/*Estado*/			/*EV_CONT,  EV_Dummy,			EV_Una_sola_mano,	EV_Maniobra_sinuosa_leve,	EV_Maniobra_sinuosa_brusca,	EV_Sin_manos,	EV_Alarma_celular,	EV_Timeout,		EV_UNKNOW */
+		/*ST_INIT*/ 			{none,	irDetectando,		none, 				none, 						none, 						none, 			irAlarmaCelular,	none, 			irError}, // ST_INIT
+		/*ST_DETECTANDO*/ 		{none, 	none, 				irAlertaLeve, 		irAlertaLeve, 				irAlertaFuerte, 			irAlertaFuerte, irAlarmaCelular,	none, 			irError}, // ST_DETECTANDO
+		/*ST_ALERTA_LEVE*/ 		{none, 	none, 				none, 				none, 						irAlertaFuerte, 			irAlertaFuerte, irAlarmaCelular, 	irDetectando, 	irError}, // ST_ALERTA_LEVE
+		/*ST_ALERTA_FUERTE*/	{none, 	none, 				none, 				none, 						none, 						none, 			irAlarmaCelular,	irDetectando, 	irError}, // ST_ALERTA_FUERTE
+		/*ST_ALARMA_CELULAR*/	{none, 	none, 				none, 				none, 						none, 						none, 			irAlarmaCelular,	irDetectando, 	irError}, // ST_ALARMA_CELULAR
+		/*ST_ERROR*/ 			{none, 	none, 				none, 				none, 						none, 						none, 			irAlarmaCelular,	irInit, 		irError}  // ST_ERROR
 };
 
 // ========================== FUNCIONES ==========================
@@ -260,6 +280,16 @@ void irAlertaFuerte()
 		client.publish(TOPIC_ESTADO,"ALERTA_FUERTE");
 }
 
+void irAlarmaCelular()
+{
+	setearLed(true);
+	emitirCancionFuerte();
+	current_state = ST_ALARMA_CELULAR;
+	gStateEntryTick = millis();
+	if(client.connected())
+		client.publish(TOPIC_ESTADO,"ALARMA_CELULAR");
+}
+
 void irError()
 {
 	setearLed(true);
@@ -307,7 +337,7 @@ events get_new_event()
 	if (gAlarmaSolicitada) // si llega comando del celular para activar alarma
   	{
     	gAlarmaSolicitada = false;
-    	return EV_SIN_MANOS;
+	    	return EV_ALARMA_CELULAR;
   	}
 
 	gLastControlTick = ct;
@@ -347,6 +377,7 @@ events get_fsm_event()
 
 	case ST_ALERTA_LEVE:
 	case ST_ALERTA_FUERTE:
+	case ST_ALARMA_CELULAR:
 		if ((ct - gStateEntryTick) >= UMBRAL_TIMEOUT_ALERTA)
 			return EV_TIMEOUT;
 		break;
@@ -488,9 +519,9 @@ void conectarWiFi()
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
-  while (WiFi.status() != WL_CONNECTED && intentos<20)
+  while (WiFi.status() != WL_CONNECTED && intentos<MAX_INTENTOS_WIFI)
   {
-    vTaskDelay(pdMS_TO_TICKS(500));
+    vTaskDelay(pdMS_TO_TICKS(DELAY_WIFI_REINTENTO));
 		intentos++;
   }
 
@@ -519,13 +550,13 @@ void conectarMQTT()
     DebugPrint("Error MQTT");
 
     // Si falla muchas veces, esperar más tiempo
-    if (intentos >= 5)
+    if (intentos >= MAX_INTENTOS_MQTT)
     {
       intentos = 0;
       vTaskDelay(pdMS_TO_TICKS(RECONNECT_DELAY));
     }
     else
-      vTaskDelay(pdMS_TO_TICKS(2000));
+      vTaskDelay(pdMS_TO_TICKS(DELAY_MQTT_REINTENTO));
   }
 }
 
@@ -548,9 +579,9 @@ void callback(char* topic, byte* message, unsigned int length)
     gAlarmaSolicitada = true;
   else if (stMensaje.startsWith("UMBRAL_MANO:"))
   {
-	String valor = stMensaje.substring(12);
+	String valor = stMensaje.substring(CANT_LETRAS_UMBRAL_MANO); // Extraer el valor después de "UMBRAL_MANO:"
 	int nuevoValor = valor.toInt();
-	if(nuevoValor >= 500 && nuevoValor <= 3000)
+	if(nuevoValor >= UMBRAL_MANO_MIN && nuevoValor <= UMBRAL_MANO_MAX) // Verificar que el nuevo valor esté dentro del rango permitido
 		umbralMano = nuevoValor;
 
 	DebugPrint("Nuevo umbral mano: ");
@@ -558,19 +589,19 @@ void callback(char* topic, byte* message, unsigned int length)
   }
   else if (stMensaje.startsWith("UMBRAL_LEVE:"))
   {
-    String valor = stMensaje.substring(12);
+    String valor = stMensaje.substring(CANT_LETRAS_UMBRAL_MANO); // Extraer el valor luego de "UMBRAL_LEVE:"
 	int nuevoValor = valor.toInt();
-	if(nuevoValor >= 20 && nuevoValor <= 300)
+	if(nuevoValor >= UMBRAL_LEVE_MIN && nuevoValor <= UMBRAL_LEVE_MAX) // Verificar que el nuevo valor esté dentro del rango permitido
     	umbralMovimientoLeve = nuevoValor;
 
     DebugPrint("Nuevo umbral leve: ");
     DebugPrint(umbralMovimientoLeve);
   }
-  else if (stMensaje.startsWith("UMBRAL_BRUSCO:"))
+  else if (stMensaje.startsWith("UMBRAL_BRUSCO:")) // Extraer el valor luego de "UMBRAL_BRUSCO:"
   {
-	String valor = stMensaje.substring(14);
+	String valor = stMensaje.substring(CANT_LETRAS_UMBRAL_BRUSCO); // Extraer el valor luego de "UMBRAL_BRUSCO:"
 	int nuevoValor = valor.toInt();
-	if(nuevoValor >= 100 && nuevoValor <= 1000 && nuevoValor > umbralMovimientoLeve)
+	if(nuevoValor >= UMBRAL_BRUSCO_MIN && nuevoValor <= UMBRAL_BRUSCO_MAX && nuevoValor > umbralMovimientoLeve)// Verificar que el nuevo valor esté dentro del rango permitido y sea mayor que el umbral leve
     	umbralMovimientoBrusco = nuevoValor;
 	
 	DebugPrint("Nuevo umbral brusco: ");
@@ -597,7 +628,7 @@ String generarJsonSensores(){
 void setup()
 {
 	// Configuracion de puerto serial para debug (115200 baudios)
-	Serial.begin(115200);
+	Serial.begin(BUADIOS_SERIAL);
 
 	// Configuracion de pines
 	pinMode(PIN_FSR_IZQ, INPUT);
