@@ -1,0 +1,227 @@
+Actúa como un ingeniero senior de firmware para ESP32 con experiencia en Arduino Framework y PlatformIO. Necesito que generes exclusivamente el código del ESP32 para un sistema de monitoreo de volante con sensores, alerta sonora, vibración, conexión WiFi y comunicación MQTT.
+
+No generes nada de Android, no generes el simulador en Python, no generes frontend, no generes documentación salvo que sea estrictamente necesaria para explicar la estructura del firmware. Quiero solo la parte del código que va para el ESP32 físico.
+
+OBJETIVO GENERAL
+
+Implementa un firmware completo para ESP32 que:
+- Lea sensores analógicos de dos FSR y un potenciómetro o sensor analógico para el volante.
+- Clasifique el estado del conductor según presencia de manos y movimiento del volante.
+- Publique estados y lecturas por MQTT.
+- Reciba comandos por MQTT desde una app móvil u otro cliente.
+- Active un buzzer y un motor vibrador según el estado.
+- Use una máquina de estados finita clara, extensible y desacoplada.
+- Mantenga una arquitectura modular, con bajo acoplamiento y alta cohesión.
+- Sea fácil de mantener, probar y ampliar.
+
+CONTEXTO FUNCIONAL
+
+El sistema debe detectar estas situaciones:
+- Ambas manos en el volante.
+- Una sola mano en el volante.
+- Sin manos.
+- Maniobra leve del volante.
+- Maniobra brusca del volante.
+- Alarma enviada desde el celular por MQTT.
+- Error de sistema.
+
+Debe existir una FSM con estados y eventos bien definidos. Los estados mínimos requeridos son:
+- ST_INIT
+- ST_DETECTANDO
+- ST_ALERTA_LEVE
+- ST_ALERTA_FUERTE
+- ST_ALARMA_CELULAR
+- ST_ERROR
+
+Los eventos mínimos requeridos son:
+- EV_CONT
+- EV_DUMMY
+- EV_UNA_SOLA_MANO
+- EV_MANIOBRA_SINUOSA_LEVE
+- EV_MANIOBRA_SINUOSA_BRUSCA
+- EV_SIN_MANOS
+- EV_ALARMA_CELULAR
+- EV_TIMEOUT
+- EV_UNKNOW
+
+ARCHITECTURA REQUERIDA
+
+Quiero una arquitectura modular, no un solo archivo monolítico. Separa responsabilidades por módulo. Si consideras apropiado, propone esta organización o una equivalente:
+
+- config/ o include/
+  - configuración de pines
+  - umbrales
+  - constantes de tiempo
+  - credenciales WiFi
+  - parámetros MQTT
+- fsm/
+  - definición de estados y eventos
+  - tabla de transición
+  - lógica de transición
+- sensors/
+  - lectura de FSR izquierdo
+  - lectura de FSR derecho
+  - lectura del volante
+  - cálculo de diferencia respecto a la lectura anterior
+  - clasificación de manos y maniobras
+- actuators/
+  - control del buzzer
+  - control del motor vibrador o LED de alerta si aplica
+- comm/
+  - conexión WiFi
+  - conexión MQTT
+  - callback de mensajes
+  - publicación de tópicos
+- app/
+  - tareas FreeRTOS o scheduler lógico
+  - orquestación del sistema
+- main.cpp
+  - inicialización
+  - arranque de tareas
+  - loop vacío o mínimo
+
+Quiero que reduzcas al máximo el acoplamiento:
+- Evita lógica de negocio distribuida en muchos lugares.
+- Evita funciones que hagan demasiadas cosas.
+- Evita dependencias cíclicas entre módulos.
+- Evita variables globales innecesarias.
+- Centraliza constantes y configuraciones.
+- Usa interfaces limpias entre módulos.
+- Si usas estructuras compartidas, hazlas explícitas y pequeñas.
+
+REQUISITOS TÉCNICOS
+
+Usa ESP32 con Arduino Framework.
+Si lo consideras más limpio, usa namespaces, structs o clases pequeñas.
+Si propones clases, que sean simples y justificadas, no excesivas.
+No uses patrones innecesariamente complejos.
+El resultado debe compilar en PlatformIO o Arduino IDE.
+
+Hardware esperado:
+- ESP32 DevKit V1
+- PIN_BUZZER = 21
+- PIN_MOTOR_VIBRADOR = 32
+- PIN_FSR_IZQ = 33
+- PIN_FSR_DER = 34
+- PIN_VOLANTE = 35
+
+Comportamiento esperado:
+- El buzzer debe tener modo apagado, intermitente y continuo.
+- El motor vibrador debe activarse en estados de alerta fuerte y alarma celular.
+- En alerta leve, el buzzer debe sonar intermitente.
+- En alerta fuerte y alarma celular, el buzzer debe sonar continuo.
+- En estado normal debe apagarse todo lo de alerta.
+- El sistema debe publicar por MQTT:
+  - estado actual
+  - lecturas de sensores
+  - timestamp
+- Debe suscribirse a un tópico de comandos.
+- Debe soportar comandos como:
+  - ALARMA
+  - UMBRAL_MANO:<valor>
+  - UMBRAL_LEVE:<valor>
+  - UMBRAL_BRUSCO:<valor>
+
+MQTT
+
+Usa estos tópicos:
+- volante/estado
+- volante/sensores
+- volante/comandos
+
+El broker puede ser:
+- broker.emqx.io
+- puerto 1883
+
+Si decides parametrizarlo, hazlo desde configuración central.
+
+WiFi:
+- Usa SSID y password configurables desde un archivo de configuración.
+- No hardcodees credenciales dentro de la lógica principal si puedes evitarlo.
+- Implementa reconexión WiFi.
+- Implementa reconexión MQTT.
+- Haz que el cliente MQTT mantenga loop activo correctamente.
+
+LÓGICA DE LA FSM
+
+Quiero que respetes esta lógica:
+- En ST_INIT se inicializa el sistema y luego se entra a ST_DETECTANDO.
+- En ST_DETECTANDO se evalúan sensores y se generan eventos por manos o maniobras.
+- En ST_ALERTA_LEVE se mantiene una alerta temporal y luego puede volver a detectar o escalar según el evento.
+- En ST_ALERTA_FUERTE se mantiene una alerta fuerte y luego puede volver a detectar por timeout.
+- En ST_ALARMA_CELULAR se entra cuando llega el comando ALARMA desde MQTT.
+- En ST_ERROR se entra ante situaciones anómalas o eventos no reconocidos, y debe tener su propia salida controlada.
+
+El nuevo estado ST_ALARMA_CELULAR debe ser explícito, no reutilices ST_SIN_MANOS ni ST_ALERTA_FUERTE para representar la alarma del celular.
+El evento EV_ALARMA_CELULAR también debe ser explícito y único.
+
+SENSORIZACIÓN
+
+La lectura de sensores debe:
+- Leer ambos FSR y el volante.
+- Calcular diferencia del volante respecto a la muestra anterior.
+- Clasificar mano izquierda, mano derecha, una mano, dos manos, sin manos.
+- Clasificar maniobra leve y brusca según umbrales.
+- Usar umbrales configurables.
+
+Umbrales sugeridos:
+- umbral mano: 1366
+- umbral movimiento leve: 80
+- umbral movimiento brusco: 260
+
+Si consideras que algún umbral debe ajustarse, deja la arquitectura lista para hacerlo sin tocar la FSM.
+
+TIEMPOS Y DEBOUNCE LÓGICO
+
+Usa tiempos configurables para:
+- diferenciar eventos muy seguidos
+- mantener alerta leve por un tiempo
+- mantener alerta fuerte por un tiempo
+- detectar permanencia de una sola mano durante un intervalo mínimo
+- reconexión WiFi
+- reconexión MQTT
+- publicación periódica de sensores
+
+Quiero que los tiempos estén centralizados y documentados en el código.
+
+TAREAS / CONCURRENCIA
+
+Si usas FreeRTOS:
+- separa al menos tareas para sensores, buzzer y comunicación WiFi/MQTT
+- evita bloqueos largos
+- evita usar delays innecesarios dentro de la lógica de estado
+- prioriza que la FSM se ejecute de forma periódica y predecible
+
+Si no usas tareas, justifica la decisión y conserva una arquitectura clara.
+
+ESTILO DE CÓDIGO
+
+Quiero:
+- nombres consistentes
+- código legible
+- funciones pequeñas
+- una sola responsabilidad por función
+- comentarios solo donde aporten claridad real
+- sin código duplicado
+- sin lógica mezclada entre hardware, FSM y comunicación
+
+ENTREGABLES ESPERADOS
+
+Genera:
+- el firmware completo del ESP32
+- la estructura de archivos propuesta
+- el código listo para compilar
+- cualquier header necesario
+- si hace falta, un README breve de cómo compilar y cargar el firmware
+
+IMPORTANTE
+
+- No generes código de Android.
+- No generes código Python.
+- No generes ningún simulador.
+- No implementes partes fuera del ESP32.
+- Mantén la implementación fiel a la funcionalidad descrita.
+- Prioriza la modularidad y el bajo acoplamiento por encima de meter todo en main.cpp.
+- Si detectas que falta alguna decisión de arquitectura, elige la opción que mejor preserve mantenibilidad y explícala brevemente antes del código.
+
+Antes de escribir el código, dame primero un resumen de la arquitectura que vas a usar y luego genera el firmware completo.
