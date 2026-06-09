@@ -2,6 +2,8 @@
 #include <WiFi.h>
 #include "PubSubClient.h"
 #include <ArduinoJson.h>
+#include <AS5600.h>
+#include <Wire.h>
 
 // ========================== MACROS ==========================
 // Habilitacion de debug para impresion por puerto serial
@@ -99,8 +101,8 @@ int umbralMovimientoBrusco = 260;
 volatile bool gAlarmaSolicitada = false;
 
 // Wifi y MQTT
-const char* ssid = "";
-const char* password = "";
+const char* ssid = "MOVISTARWIFI8165";
+const char* password = "1234dani";
 
 const char* MQTT_SERVER = "broker.emqx.io";
 const int MQTT_PORT = 1883;
@@ -111,6 +113,9 @@ PubSubClient client(espClient);
 const char* TOPIC_ESTADO   = "volante/estado";
 const char* TOPIC_SENSOR   = "volante/sensores";
 const char* TOPIC_COMANDOS = "volante/comandos"; //comandos desde el celular
+
+AS5600 ams5600;
+int angle_in = 0;
 
 // ========================== ENUMS ==========================
 enum states
@@ -300,12 +305,23 @@ void irError()
 		client.publish(TOPIC_ESTADO,"ERROR");
 }
 
+int Angle() {
+  digitalWrite(PIN_VOLANTE, HIGH);
+  int in;
+  in = map(ams5600.readAngle(),0,4095,0,360);
+  return in;
+}
+
 void actualizarLecturas()
 {
 	// Lectura de sensores
 	gLectura.fsrIzq = analogRead(PIN_FSR_IZQ);
 	gLectura.fsrDer = analogRead(PIN_FSR_DER);
-	gLectura.volante = analogRead(PIN_VOLANTE);
+	// gLectura.volante = analogRead(PIN_VOLANTE);
+	if (ams5600.detectMagnet() == 1 )
+    if (gLectura.volante != Angle())
+      gLectura.volante = Angle();
+
 
 	// Calculo de diferencia de volante respecto a lectura anterior
 	gLectura.difVolante = abs(gLectura.volante - gValorVolanteAnterior);
@@ -629,11 +645,12 @@ void setup()
 {
 	// Configuracion de puerto serial para debug (115200 baudios)
 	Serial.begin(BUADIOS_SERIAL);
+	Wire.begin();
 
 	// Configuracion de pines
 	pinMode(PIN_FSR_IZQ, INPUT);
 	pinMode(PIN_FSR_DER, INPUT);
-	pinMode(PIN_VOLANTE, INPUT);
+	pinMode(PIN_VOLANTE, OUTPUT);
 	pinMode(PIN_BUZZER, OUTPUT);
 	pinMode(PIN_MOTOR_VIBRADOR, OUTPUT);
 
