@@ -42,6 +42,10 @@
 #define BUADIOS_SERIAL 115200
 #define MAX_INTENTOS_MQTT 5
 #define DELAY_MQTT_REINTENTO 5000	// 5 segundos
+#define CANT_LETRAS_VELOCIDAD 10		// largo de "VELOCIDAD:"
+#define CANT_LETRAS_UMBRAL_VELOCIDAD 18	// largo de "UMBRAL_VELOCIDAD:"
+#define UMBRAL_VELOCIDAD_MIN 1
+#define UMBRAL_VELOCIDAD_MAX 100
 
 
 // ========================== CONSTANTES ==========================
@@ -99,6 +103,10 @@ int umbralMano = 1;
 int umbralMovimientoLeve = 80;
 int umbralMovimientoBrusco = 260;
 volatile bool gAlarmaSolicitada = false;
+
+// Velocidad GPS recibida desde el celular
+volatile int gVelocidadGPS = 0;			// velocidad actual en km/h (actualizada por MQTT)
+int umbralVelocidad = 10;				// umbral de velocidad en km/h (por debajo se ignoran maniobras)
 
 // Wifi y MQTT
 const char* ssid = "MOVISTARWIFI8165";
@@ -362,7 +370,11 @@ events get_new_event()
 	if (gLectura.sinManos)
 		return EV_SIN_MANOS;
 
-	if (gLectura.maniobraBrusca)
+	// Si la velocidad GPS es menor al umbral, se entiende que el conductor
+	// esta doblando y las maniobras sinuosas NO disparan alarma.
+	bool ignorarManiobras = (gVelocidadGPS < umbralVelocidad);
+
+	if (gLectura.maniobraBrusca && !ignorarManiobras)
 		return EV_MANIOBRA_SINUOSA_BRUSCA;
 
 	if (gLectura.unaMano)
@@ -376,7 +388,7 @@ events get_new_event()
 	else
 		gUnaManoDesde = 0;
 
-	if (gLectura.maniobraLeve)
+	if (gLectura.maniobraLeve && !ignorarManiobras)
 		return EV_MANIOBRA_SINUOSA_LEVE;
 
 	return EV_CONT;
@@ -623,6 +635,26 @@ void callback(char* topic, byte* message, unsigned int length)
 	DebugPrint("Nuevo umbral brusco: ");
 	DebugPrint(umbralMovimientoBrusco);
   }
+  else if (stMensaje.startsWith("VELOCIDAD:")) // Velocidad GPS recibida desde el celular
+  {
+	String valor = stMensaje.substring(CANT_LETRAS_VELOCIDAD);
+	int nuevoValor = valor.toInt();
+	if(nuevoValor >= 0) // la velocidad puede ser 0 (detenido)
+		gVelocidadGPS = nuevoValor;
+
+	DebugPrint("Velocidad GPS recibida: ");
+	DebugPrint(gVelocidadGPS);
+  }
+  else if (stMensaje.startsWith("UMBRAL_VELOCIDAD:")) // Umbral de velocidad recibido desde el celular
+  {
+	String valor = stMensaje.substring(CANT_LETRAS_UMBRAL_VELOCIDAD);
+	int nuevoValor = valor.toInt();
+	if(nuevoValor >= UMBRAL_VELOCIDAD_MIN && nuevoValor <= UMBRAL_VELOCIDAD_MAX)
+		umbralVelocidad = nuevoValor;
+
+	DebugPrint("Nuevo umbral velocidad: ");
+	DebugPrint(umbralVelocidad);
+  }
 }
 
 String generarJsonSensores(){
@@ -632,6 +664,8 @@ String generarJsonSensores(){
 	doc["fsrIzq"] = gLectura.fsrIzq;
 	doc["fsrDer"] = gLectura.fsrDer;
 	doc["volante"] = gLectura.volante;
+	doc["velocidadGPS"] = gVelocidadGPS;
+	doc["umbralVel"] = umbralVelocidad;
 	doc["timestamp"] = millis();
 
 	String json;

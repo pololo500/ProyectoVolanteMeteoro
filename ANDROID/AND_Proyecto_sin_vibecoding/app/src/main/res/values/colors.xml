@@ -8,4 +8,8 @@
     <color name="app_background">#F4F7F4</color>
     <color name="app_surface">#FFFFFF</color>
     <color name="app_on_surface">#1F1F1F</color>
+    <color name="speed_safe">#2E7D32</color>
+    <color name="speed_warning">#F57C00</color>
+    <color name="speed_indicator_bg">#E8F5E9</color>
+    <color name="speed_warning_bg">#FFF3E0</color>
 </resources>

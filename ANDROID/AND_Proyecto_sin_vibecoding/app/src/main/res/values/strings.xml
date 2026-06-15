@@ -20,4 +20,25 @@
     <string name="label_fsr_der">FSR Derecho:</string>
     <string name="label_volante">Volante:</string>
     <string name="value_placeholder">---</string>
+    <!-- Pantalla GPS -->
+    <string name="gps_title">Velocímetro GPS</string>
+    <string name="gps_status_searching">Buscando señal GPS…</string>
+    <string name="gps_status_active">GPS activo – señal obtenida.</string>
+    <string name="gps_status_denied">Permiso de ubicación denegado.</string>
+    <string name="gps_status_mqtt_connected">GPS activo · MQTT conectado.</string>
+    <string name="gps_status_mqtt_error">GPS activo · Error MQTT.</string>
+    <string name="speed_label">Velocidad Actual</string>
+    <string name="speed_unit">km/h</string>
+    <string name="speed_zero">0</string>
+    <string name="threshold_card_title">Configuración de Alarma</string>
+    <string name="threshold_card_description">Si la velocidad es menor al umbral, las maniobras sinuosas NO dispararán la alarma (se entiende que el conductor está doblando).</string>
+    <string name="threshold_hint">Umbral de velocidad (km/h)</string>
+    <string name="threshold_button">Guardar y Enviar al Volante</string>
+    <string name="gps_info_title">Información GPS</string>
+    <string name="gps_latitude_label">Latitud:</string>
+    <string name="gps_longitude_label">Longitud:</string>
+    <string name="gps_accuracy_label">Precisión:</string>
+    <string name="speed_above_threshold">Alarma de maniobras ACTIVA</string>
+    <string name="speed_below_threshold">Alarma de maniobras SILENCIADA</string>
+    <string name="button_go_gps">Pantalla GPS</string>
 </resources>

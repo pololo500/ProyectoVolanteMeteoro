@@ -32,7 +32,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:text="Velocímetro GPS"
+                android:text="@string/gps_title"
                 android:textSize="28sp"
                 android:textStyle="bold"
                 android:textColor="@color/app_primary" />
@@ -44,16 +44,17 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:layout_marginStart="8dp"
-            android:text="Buscando señal GPS..."
+            android:text="@string/gps_status_searching"
             android:textColor="@color/app_secondary"
             android:textSize="15sp"
             android:textStyle="italic" />
 
-        <!-- Tarjeta de Velocidad Actual -->
+        <!-- ==================== Card de Velocidad Actual ==================== -->
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_speed"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
+            android:layout_marginTop="24dp"
             android:layout_marginHorizontal="4dp"
             app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="24dp"
@@ -66,12 +67,12 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:gravity="center"
-                android:padding="32dp">
+                android:padding="28dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Velocidad Actual"
+                    android:text="@string/speed_label"
                     android:textSize="18sp"
                     android:textColor="@color/app_secondary" />
 
@@ -79,27 +80,146 @@
                     android:id="@+id/text_speed_value"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textSize="72sp"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/speed_zero"
+                    android:textSize="80sp"
                     android:textStyle="bold"
                     android:textColor="@color/app_primary" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="km/h"
-                    android:textSize="20sp"
+                    android:text="@string/speed_unit"
+                    android:textSize="22sp"
                     android:textStyle="bold"
                     android:textColor="@color/app_primary" />
+
+                <!-- Indicador de estado de alarma -->
+                <TextView
+                    android:id="@+id/text_speed_status_indicator"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:paddingHorizontal="20dp"
+                    android:paddingVertical="8dp"
+                    android:background="@drawable/rounded_indicator_bg"
+                    android:text="@string/speed_below_threshold"
+                    android:textColor="@color/speed_warning"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Tarjeta de Umbral -->
+        <!-- ==================== Card de Información GPS ==================== -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginHorizontal="4dp"
+            app:cardBackgroundColor="@color/app_surface"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="4dp"
+            app:strokeColor="@color/app_secondary"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/gps_info_title"
+                    android:textColor="@color/app_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <!-- Latitud -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="12dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/gps_latitude_label"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="15sp" />
+                    <TextView
+                        android:id="@+id/text_latitude"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/value_placeholder"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="8dp"
+                    android:background="#E0E0E0" />
+
+                <!-- Longitud -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="4dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/gps_longitude_label"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="15sp" />
+                    <TextView
+                        android:id="@+id/text_longitude"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/value_placeholder"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Precisión -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/gps_accuracy_label"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="15sp" />
+                    <TextView
+                        android:id="@+id/text_accuracy"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/value_placeholder"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- ==================== Card de Configuración de Umbral ==================== -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
             android:layout_marginHorizontal="4dp"
             app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="24dp"
@@ -116,7 +236,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Configuración de Alarma"
+                    android:text="@string/threshold_card_title"
                     android:textSize="18sp"
                     android:textColor="@color/app_primary"
                     android:textStyle="bold" />
@@ -125,7 +245,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Silenciar el volante cuando la velocidad sea menor a:"
+                    android:text="@string/threshold_card_description"
                     android:textColor="@color/app_secondary"
                     android:textSize="14sp" />
 
@@ -134,7 +254,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:hint="Umbral de velocidad (km/h)"
+                    android:hint="@string/threshold_hint"
                     app:boxBackgroundColor="@color/app_background"
                     app:boxBackgroundMode="outline"
                     app:boxCornerRadiusBottomEnd="14dp"
@@ -143,7 +263,9 @@
                     app:boxCornerRadiusTopStart="14dp"
                     app:boxStrokeColor="@color/app_primary"
                     app:boxStrokeWidth="1dp"
-                    app:hintTextColor="@color/app_on_surface">
+                    app:hintTextColor="@color/app_on_surface"
+                    app:suffixText="km/h"
+                    app:suffixTextColor="@color/app_secondary">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edit_text_speed_threshold"
@@ -159,14 +281,19 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="Guardar y Enviar al Volante"
+                    android:text="@string/threshold_button"
                     android:textAllCaps="false"
                     app:backgroundTint="@color/app_primary"
-                    app:cornerRadius="12dp"
+                    app:cornerRadius="18dp"
                     app:rippleColor="@color/app_secondary" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+
+        <!-- Espacio inferior -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="24dp" />
 
     </LinearLayout>
 </ScrollView>
