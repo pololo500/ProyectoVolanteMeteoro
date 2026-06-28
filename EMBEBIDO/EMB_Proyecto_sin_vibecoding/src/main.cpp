@@ -43,7 +43,7 @@
 #define MAX_INTENTOS_MQTT 5
 #define DELAY_MQTT_REINTENTO 5000	// 5 segundos
 #define CANT_LETRAS_VELOCIDAD 10		// largo de "VELOCIDAD:"
-#define CANT_LETRAS_UMBRAL_VELOCIDAD 18	// largo de "UMBRAL_VELOCIDAD:"
+#define CANT_LETRAS_UMBRAL_VELOCIDAD 17	// largo de "UMBRAL_VELOCIDAD:"
 #define UMBRAL_VELOCIDAD_MIN 1
 #define UMBRAL_VELOCIDAD_MAX 100
 
@@ -97,12 +97,16 @@ const int BUZZER_DELAY_CONTINUO = 100;
 const int WIFI_TASK_DELAY = 100;
 const int RECONNECT_DELAY = 5000;
 const int SENSOR_PUBLISH_INTERVAL = 1000;
+const unsigned long VENTANA_MOVIMIENTO_MS = 500;
 
 // Varibles globales
 int umbralMano = 1;
-int umbralMovimientoLeve = 80;
-int umbralMovimientoBrusco = 260;
+int umbralMovimientoLeve = 20;
+int umbralMovimientoBrusco = 60;
 volatile bool gAlarmaSolicitada = false;
+
+int gAnguloReferencia = 0;
+unsigned long gInicioVentanaMovimiento = 0;
 
 // Velocidad GPS recibida desde el celular
 volatile int gVelocidadGPS = 0;			// velocidad actual en km/h (actualizada por MQTT)
@@ -320,6 +324,17 @@ int Angle() {
   return in;
 }
 
+int calcularDiferenciaAngular(int anguloActual, int anguloAnterior)
+{
+    int diferencia = abs(anguloActual - anguloAnterior);
+
+    // Corrige el salto entre 359° y 0°
+    if (diferencia > 180)
+        diferencia = 360 - diferencia;
+
+    return diferencia;
+}
+
 void actualizarLecturas()
 {
 	// Lectura de sensores
@@ -327,17 +342,20 @@ void actualizarLecturas()
 	gLectura.fsrDer = analogRead(PIN_FSR_DER);
 	// gLectura.volante = analogRead(PIN_VOLANTE);
 	if (ams5600.detectMagnet() == 1 )
-    if (gLectura.volante != Angle())
-      gLectura.volante = Angle();
+    gLectura.volante = Angle();
 
+	unsigned long ahora = millis();
 
 	// Calculo de diferencia de volante respecto a lectura anterior
-	gLectura.difVolante = abs(gLectura.volante - gValorVolanteAnterior);
-	gValorVolanteAnterior = gLectura.volante;
+	gLectura.difVolante = calcularDiferenciaAngular(
+    gLectura.volante,
+    gAnguloReferencia
+  );
 
 	// Clasificacion de manos en true o false segun umbral predefinido
 	gLectura.manoIzq = (gLectura.fsrIzq >= umbralMano);
 	gLectura.manoDer = (gLectura.fsrDer >= umbralMano);
+
 	gLectura.unaMano = (gLectura.manoIzq ^ gLectura.manoDer);
 	gLectura.dosManos = (gLectura.manoIzq && gLectura.manoDer);
 	gLectura.sinManos = (!gLectura.manoIzq && !gLectura.manoDer);
@@ -346,6 +364,12 @@ void actualizarLecturas()
 	gLectura.maniobraLeve = (gLectura.difVolante >= umbralMovimientoLeve && gLectura.difVolante < umbralMovimientoBrusco);
 	gLectura.maniobraBrusca = (gLectura.difVolante >= umbralMovimientoBrusco);
 	gLectura.volanteEstabilizado = (gLectura.difVolante < umbralMovimientoLeve);
+
+	if (ahora - gInicioVentanaMovimiento >= VENTANA_MOVIMIENTO_MS)
+  {
+    gAnguloReferencia = gLectura.volante;
+    gInicioVentanaMovimiento = ahora;
+  }
 }
 
 // De la Máquina de Estados
@@ -715,6 +739,15 @@ void setup()
 	gValorVolanteAnterior = analogRead(PIN_VOLANTE);
 	gLastControlTick = millis();
 	gStateEntryTick = millis();
+
+	if (ams5600.detectMagnet() == 1)
+	{
+    gLectura.volante = Angle();
+    gAnguloReferencia = gLectura.volante;
+    gValorVolanteAnterior = gLectura.volante;
+	}
+
+gInicioVentanaMovimiento = millis();
 
 	current_state = ST_INIT;
 	new_event = EV_CONT;
